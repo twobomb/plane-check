@@ -16,12 +16,46 @@ require_once "Base64ImageProcessor.php";
      'password' => '123456'
  ]);
 
+
+ function addHistory($planId,$type,$value){
+    CORE::$db->insert("history",[
+       "user_id"=>getUserId(),
+        "type"=>$type,
+        "value"=>$value,
+        "plan_id"=>$planId
+    ]);
+      return is_null(CORE::$db->error);
+ }
  function getUserId(){
      return 1;
  }
 
 function getDeps(){
-    return CORE::$db->select("department","*");
+     $result = [];
+     $db = CORE::$db;
+        // 1. Получаем все отделы с parent_id = NULL, сортируем по sort_id
+        $rootDepartments = $db->select('department', '*', [
+            'parent_id' => null,
+            'ORDER' => ['sort_id' => 'ASC']
+        ]);
+
+        // 2. Добавляем корневые отделы в результат
+        foreach ($rootDepartments as $department) {
+            $result[] = $department;
+
+            // 3. Для каждого корневого отдела получаем его дочерние отделы
+            $childDepartments = $db->select('department', '*', [
+                'parent_id' => $department['id'],
+                'ORDER' => ['sort_id' => 'ASC']
+            ]);
+
+            // 4. Добавляем дочерние отделы сразу после родителя
+            foreach ($childDepartments as $child) {
+                $result[] = $child;
+            }
+        }
+
+        return $result;
 }
 function getGeopoint(){
     return CORE::$db->select("point","*",["layer_id"=>null]);
@@ -35,37 +69,36 @@ function responseJson($data){
     die;
 }
 
-function addFileToList(array $file)
+// Форматирование размера файла
+function formatFileSize($bytes)
 {
-    // Форматирование размера файла
-    function formatFileSize($bytes)
-    {
-        if ($bytes === 0) return '0 Б';
-        $k = 1024;
-        $sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
-        $i = floor(log($bytes) / log($k));
-        return round($bytes / pow($k, $i), 2) . ' ' . $sizes[$i];
-    }
+    if ($bytes === 0) return '0 Б';
+    $k = 1024;
+    $sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+    $i = floor(log($bytes) / log($k));
+    return round($bytes / pow($k, $i), 2) . ' ' . $sizes[$i];
+}
 
-    // Определение иконки по типу файла
-    function getFileIcon($fileName)
-    {
-        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+// Определение иконки по типу файла
+function getFileIcon($fileName)
+{
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
-        if (in_array($ext, ['pdf'])) return 'fas fa-file-pdf';
-        if (in_array($ext, ['doc', 'docx'])) return 'fas fa-file-word';
-        if (in_array($ext, ['xls', 'xlsx'])) return 'fas fa-file-excel';
-        if (in_array($ext, ['ppt', 'pptx'])) return 'fas fa-file-powerpoint';
-        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'bmp'])) return 'fas fa-file-image';
-        if (in_array($ext, ['zip', 'rar', '7z', 'tar', 'gz'])) return 'fas fa-file-archive';
-        return 'fas fa-file';
-    }
+    if (in_array($ext, ['pdf'])) return 'fas fa-file-pdf';
+    if (in_array($ext, ['doc', 'docx'])) return 'fas fa-file-word';
+    if (in_array($ext, ['xls', 'xlsx'])) return 'fas fa-file-excel';
+    if (in_array($ext, ['ppt', 'pptx'])) return 'fas fa-file-powerpoint';
+    if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'bmp'])) return 'fas fa-file-image';
+    if (in_array($ext, ['zip', 'rar', '7z', 'tar', 'gz'])) return 'fas fa-file-archive';
+    return 'fas fa-file';
+}
+function addFileToList(array $file){
 
     // Получаем размер файла
     $fileSize = file_exists($file['url']) ? filesize($file['url']) : 0;
 
     // Генерируем HTML для файла
-    $html = '<div class="file-item">
+    $html = '<div class="file-item file-item-loaded" data-id="'.$file["id"].'">
                 <div class="file-info">
                     <div class="file-icon">
                         <i class="' . getFileIcon($file['name']) . '"></i>

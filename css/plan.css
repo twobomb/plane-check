@@ -4,6 +4,37 @@
     box-sizing: border-box;
 }
 
+.deadline-success{
+    color: #0bca00;
+    font-weight: bold;
+}
+.dealine-red{
+    color: #ff0000;
+    animation: heartbeat 1.2s infinite;
+}
+
+@keyframes heartbeat {
+    0% {
+        transform: scale(1);
+    }
+    25% {
+        transform: scale(1.05);
+        color: #ff3333;
+    }
+    35% {
+        transform: scale(1);
+    }
+    45% {
+        transform: scale(1.08);
+        color: #ff6666;
+    }
+    55% {
+        transform: scale(1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
 body {
     font-family: 'Inter', sans-serif;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -284,7 +315,7 @@ body {
     background: white;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.21);
     transition: all 0.3s ease;
     border: 1px solid #e9ecef;
     display: flex;
@@ -319,6 +350,8 @@ body {
 }
 
 .plan-date {
+
+    font-size: 14px;
     display: flex;
     align-items: center;
     gap: 5px;

@@ -41,11 +41,16 @@ function validatePlan($p){
     if( !in_array($p["status"],array_keys(CORE::$statuses)) )
         array_push($errors,"Неверный статус!");
 
-    if(CORE::$db->count("department",["id"=>$p["departments"]]) != count($p["departments"]))
+    if(!isset($p["departments"]))
+        $p["departments"] = [];
+    if(!isset($p["geoPoints"]))
+        $p["geoPoints"] = [];
+
+    if(count($p["departments"]) > 0 && CORE::$db->count("department",["id"=>$p["departments"]]) != count($p["departments"]))
         array_push($errors,"Указаны неверные подразделения!");
-    if(CORE::$db->count("point",["id"=>$p["geoPoints"]]) != count($p["geoPoints"]))
+    if( count($p["geoPoints"]) > 0 && CORE::$db->count("point",["id"=>$p["geoPoints"]]) != count($p["geoPoints"]))
         array_push($errors,"Указаны неверные геоточки!");
-    if (!empty($p["parent_id"]) && CORE::$db->count("plan",["id"=>$p["parent_id"]]))
+    if (!empty($p["parent_id"]) && CORE::$db->count("plan",["id"=>$p["parent_id"]]) == 0 )
         array_push($errors,"Родительский план не найден!");
 
     return ["errors"=>$errors,"data"=>$p];
@@ -63,19 +68,50 @@ if($_SERVER["REQUEST_METHOD"] == "GET") {
     }
 }
 if($_SERVER["REQUEST_METHOD"] == "POST"){
+
+    $res = ["result"=>"ok"];
+
+    if(isset($_POST["delete_plan_id"])){ /// УДАЛЕНИЕ ПЛАНА
+        try {
+        $delid = $_POST["delete_plan_id"];
+        $removeFileIds = CORE::$db->select("file_to_plan","file_id", ["plan_id"=>$delid]);
+        if(!is_null(CORE::$db->error))
+            throw new Exception("Ошибка БД! ".CORE::$db->error);
+        if(count($removeFileIds) > 0) {
+            $urls = CORE::$db->select("files", "url", ["id" => $removeFileIds]);
+            if (!is_null(CORE::$db->error))
+                throw new Exception("Ошибка БД! " . CORE::$db->error);
+            foreach ($urls as $url)
+                unlink_if_exists($url);
+            CORE::$db->delete("files", ["id" => $removeFileIds]);
+        }
+
+        CORE::$db->delete("plan", ["id"=>$delid]);
+        if(!is_null(CORE::$db->error))
+            throw new Exception("Ошибка БД! ".CORE::$db->error);
+        }catch (Exception $ex){
+            $res["result"] = 'error';
+            $res["errors"] = [$ex->getMessage()];
+        }
+        responseJson($res);die;
+    }
+
+
     $r = validatePlan($_POST);
     $data = $r["data"];
 
     $err = $r["errors"];
 
-    $res = ["result"=>"ok"];
     if(count($err) > 0){
         $res["result"] = 'error';
         $res["errors"] = $err;
     }
     else if (!empty($data["plan_id"])){
+        //UPDATE (EDIT)
         try {
         $pid =$data["plan_id"];
+        $curValuesPlan =CORE::$db->select("plan","*",["id"=>$pid])[0];
+
         CORE::$db->update("plan",
             [
             "name"=>$data["name"],
@@ -87,6 +123,24 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         ],["id"=>$pid]);
             if(!is_null(CORE::$db->error))
                 throw new Exception("Ошибка БД! ".CORE::$db->error);
+
+
+            if($curValuesPlan["name"] != $data["name"])
+                addHistory($pid,"edit","Изменено название");
+            if($curValuesPlan["content"] != $data["content"])
+                addHistory($pid,"edit","Изменено описание");
+            if($curValuesPlan["date_type"] != $data["date_type"])
+                addHistory($pid,"edit","Изменен тип даты");
+            if($curValuesPlan["date_value"] != $data["date_value"])
+                addHistory($pid,"edit","Изменена дата дедлайна");
+            if($curValuesPlan["parent_id"] != $data["parent_id"])
+                addHistory($pid,"edit","Изменен родительский план");
+            if($curValuesPlan["status"] != $data["status"])
+                addHistory($pid,"changestatus","Статус изменен на '".CORE::$statuses[$data["status"]]."'");
+
+            if(array_count_values(CORE::$db->select("department_to_plan","department_id" ,["plan_id"=>$pid]))
+                !=  array_count_values($data["departments"]))
+                addHistory($pid,"edit","Изменены привязанные подразделения");
 
             CORE::$db->delete("department_to_plan", ["plan_id"=>$pid]);
             if (!is_null(CORE::$db->error))
@@ -102,6 +156,11 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             }
 
 
+
+            if(array_count_values(CORE::$db->select("point_to_plan","point_id" ,["plan_id"=>$pid]))
+                !=  array_count_values($data["geoPoints"]))
+                addHistory($pid,"edit","Изменены привязанные геоточки");
+
             CORE::$db->delete("point_to_plan", ["plan_id"=>$pid]);
             if (!is_null(CORE::$db->error))
                 throw new Exception("Ошибка БД! " . CORE::$db->error);
@@ -115,6 +174,41 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                     throw new Exception("Ошибка БД! ".CORE::$db->error);
             }
 
+            $removeFileIds = CORE::$db->select("file_to_plan","file_id", ["plan_id"=>$pid,"file_id"=>$data["fileRemoveList"]]);
+            if(!is_null(CORE::$db->error))
+                throw new Exception("Ошибка БД! ".CORE::$db->error);
+
+            if(count($removeFileIds) > 0) {
+                addHistory($pid,"edit","Удалены привязанные файлы: ".count($removeFileIds));
+                $urls = CORE::$db->select("files", "url", ["id" => $removeFileIds]);
+                if (!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! " . CORE::$db->error);
+                foreach ($urls as $url)
+                    unlink_if_exists($url);
+                CORE::$db->delete("files", ["id" => $removeFileIds]);
+            }
+
+
+            $file_ids  =  [];
+            foreach ($_FILES["file"]["tmp_name"] as $i=>$tmpname) {
+                CORE::$db->insert("files",[
+                    "url"=>saveUniFile("uploaded/planfiles/",$tmpname,$_FILES["file"]["name"][$i]),
+                    "name"=>$_FILES["file"]["name"][$i]
+                ]);
+                if(!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! ".CORE::$db->error);
+                array_push($file_ids,CORE::$db->id());
+            }
+            foreach ($file_ids as $fid) {
+                CORE::$db->insert("file_to_plan", [
+                    "file_id" => $fid,
+                    "plan_id" => $pid
+                ]);
+                if(!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! ".CORE::$db->error);
+            }
+            if(count($file_ids))
+                addHistory($pid,"edit","Добавлены файлы: ".count($file_ids));
 
         }catch (Exception $ex){
             $res["result"] = 'error';
@@ -123,6 +217,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
     }
     else {
+        //INSERT (ADD)
         try {
             CORE::$db->insert("plan",[
                 "name"=>$data["name"],
@@ -173,6 +268,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 if(!is_null(CORE::$db->error))
                     throw new Exception("Ошибка БД! ".CORE::$db->error);
             }
+            addHistory($pid,"add","План создан!");
 
         }catch (Exception $ex){
             $res["result"] = 'error';
@@ -224,13 +320,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                             <label for="planTitle" class="required">Название плана</label>
                             <input type="text" id="planTitle" class="form-input" placeholder="Введите название плана" value="<?=$plan?$plan["name"]:""?>">
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="planDescription" class="required">Описание плана</label>
-                            <div class="editor-container">
-                                <div id="editor"><?=$plan?$plan["content"]:""?></div>
-                            </div>
-                        </div>
+
                         
                         <div class="form-group">
                             <label for="dateType" class="required">Тип даты</label>
@@ -252,100 +342,83 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                                     Без даты
                                 </label>
                             </div>
-                            
-                            <div class="date-inputs" id="exactDateInput">
-                                <label for="exactDate">Дата выполнения</label>
-                                <input type="date" id="exactDate" class="form-date" value="<?=($plan)?DateTime::createFromFormat('Y-m-d', $plan["date_value"])->format("Y-m-d"):((new DateTime())->format("Y-m-d"))  ?>">
-                            </div>
-                            
-                            <div class="date-inputs hidden" id="monthDateInput">
-                                <label for="monthDate">Месяц и год</label>
-                                <input type="month" id="monthDate" class="form-date" value="<?=($plan)?DateTime::createFromFormat('Y-m-d', $plan["date_value"])->format("Y-m"):((new DateTime())->format("Y-m"))  ?>">
-                            </div>
-                            
-                            <div class="date-inputs hidden" id="yearDateInput">
-                                <label for="yearDate">Год</label>
-                                <input type="number" id="yearDate" class="form-input" min="2025" max="2030" value="<?=($plan)?DateTime::createFromFormat('Y-m-d', $plan["date_value"])->format("Y"):((new DateTime())->format("Y"))  ?>">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Статус плана -->
-                    <div class="form-section">
-                        <h2><i class="fas fa-flag"></i> Статус плана</h2>
-                        
-                        <div class="status-options">
-                            <div class="status-option status-pending <?=($plan && $plan["status"] === "pending" || !$plan)?"selected":""  ?>" data-status="pending">
-                                Ожидание
-                            </div>
-                            <div class="status-option status-inprogress" data-status="inprogress"  <?=($plan && $plan["status"] === "inprogress")?"selected":""  ?>>
-                                В работе
-                            </div>
-                            <div class="status-option status-completed" data-status="completed"  <?=($plan && $plan["status"] === "completed")?"selected":""  ?>>
-                                Выполнен
-                            </div>
-                            <div class="status-option status-rejected" data-status="rejected"  <?=($plan && $plan["status"] === "rejected")?"selected":""  ?>>
-                                Отклонен
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- История изменений -->
-                    <div class="form-section history-section">
-                        <h2><i class="fas fa-history"></i> История изменений</h2>
-                        
-                        <div id="historyList">
-                            <div class="history-item">
-                                <div class="history-icon">
-                                    <i class="fas fa-plus-circle"></i>
-                                </div>
-                                <div class="history-content">
-                                    <div class="history-text">План создан</div>
-                                    <div class="history-date">10 сентября 2023, 14:30 • Иван Петров</div>
-                                </div>
-                            </div>
-                            <div class="history-item">
-                                <div class="history-icon">
-                                    <i class="fas fa-edit"></i>
-                                </div>
-                                <div class="history-content">
-                                    <div class="history-text">Изменено название плана</div>
-                                    <div class="history-date">12 сентября 2023, 10:15 • Анна Смирнова</div>
-                                </div>
-                            </div>
-                            <div class="history-item">
-                                <div class="history-icon">
-                                    <i class="fas fa-flag"></i>
-                                </div>
-                                <div class="history-content">
-                                    <div class="history-text">Статус изменен на "В работе"</div>
-                                    <div class="history-date">15 сентября 2023, 09:45 • Иван Петров</div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="right-column">
+
+                    <!-- Статус плана -->
+                    <div class="form-section">
+                        <h2><i class="fas fa-flag"></i> Статус плана</h2>
+
+                        <div class="status-options">
+                            <div class="status-option status-pending <?=($plan && $plan["status"] === "pending" || !$plan)?"selected":""  ?>" data-status="pending">
+                                Ожидание
+                            </div>
+                            <div class="status-option status-inprogress <?=($plan && $plan["status"] === "inprogress")?"selected":""  ?>" data-status="inprogress"  >
+                                В работе
+                            </div>
+                            <div class="status-option status-completed <?=($plan && $plan["status"] === "completed")?"selected":""  ?>" data-status="completed"  >
+                                Выполнен
+                            </div>
+                            <div class="status-option status-rejected <?=($plan && $plan["status"] === "rejected")?"selected":""  ?>" data-status="rejected"  >
+                                Отклонен
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="form-group">
+                        <div class="date-inputs" id="exactDateInput">
+                            <label for="exactDate">Дата выполнения</label>
+                            <input type="date" id="exactDate" class="form-date" value="<?=($plan)?DateTime::createFromFormat('Y-m-d', $plan["date_value"])->format("Y-m-d"):((new DateTime())->format("Y-m-d"))  ?>">
+                        </div>
+
+                        <div class="date-inputs hidden" id="monthDateInput">
+                            <label for="monthDate">Месяц и год</label>
+                            <input type="month" id="monthDate" class="form-date" value="<?=($plan)?DateTime::createFromFormat('Y-m-d', $plan["date_value"])->format("Y-m"):((new DateTime())->format("Y-m"))  ?>">
+                        </div>
+
+                        <div class="date-inputs hidden" id="yearDateInput">
+                            <label for="yearDate">Год</label>
+                            <input type="number" id="yearDate" class="form-input" min="2025" max="2030" value="<?=($plan)?DateTime::createFromFormat('Y-m-d', $plan["date_value"])->format("Y"):((new DateTime())->format("Y"))  ?>">
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+
+            <div class="form-group">
+                <label for="planDescription" class="required">Описание плана</label>
+                <div class="editor-container">
+                    <div id="editor"><?=$plan?$plan["content"]:""?></div>
+                </div>
+            </div>
+
+            <div class="form-container">
+                <div class="left-column">
+
                     <!-- Привязка к подразделениям -->
                     <div class="form-section">
                         <h2><i class="fas fa-sitemap"></i> Подразделения</h2>
-                        
+
                         <div class="form-group">
                             <label for="departmentsSelect">Выберите подразделения</label>
                             <select id="departmentsSelect" class="form-select" multiple="multiple">
                                 <!--<option value="1" selected>Маркетинг</option>-->
                                 <?PHP
-                                    $depdis =[];
-                                    if($plan)
-                                        $depdis = array_values(CORE::$db->select("department_to_plan","department_id",["plan_id"=>$plan["id"]]));
+                                $depdis =[];
+                                if($plan)
+                                    $depdis = array_values(CORE::$db->select("department_to_plan","department_id",["plan_id"=>$plan["id"]]));
 
-                                    foreach (getDeps() as $dep):
-                                        $selected = in_array($dep["id"],$depdis)?"selected":"";
-                                        ?>
-                                        <option value="<?= $dep["id"]?>" <?= $selected ?> ><?= $dep["name"]?></option>
+                                foreach (getDeps() as $dep):
+                                    $selected = in_array($dep["id"],$depdis)?"selected":"";
+                                    ?>
+                                    <option value="<?= $dep["id"]?>" <?= $selected ?> ><?= $dep["name"]?></option>
                                 <?PHP
-                                    endforeach;
+                                endforeach;
                                 ?>
 
                             </select>
@@ -354,11 +427,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                             </div>
                         </div>
                     </div>
-                    
+
+
                     <!-- Привязка геоточек -->
                     <div class="form-section">
                         <h2><i class="fas fa-map-marker-alt"></i> Геоточки</h2>
-                        
+
                         <div class="form-group">
                             <label for="geoPointsSelect">Выберите геоточки</label>
                             <select id="geoPointsSelect" class="form-select" multiple="multiple">
@@ -379,18 +453,99 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                                 <i class="fas fa-info-circle"></i> Вы можете выбрать несколько геоточек
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <button class="btn btn-secondary" id="addGeoPointBtn" style="width: 100%;">
                                 <i class="fas fa-plus"></i> Добавить новую геоточку
                             </button>
                         </div>
                     </div>
-                    
+                    <?PHP if($plan): ?>
+                        <!-- История изменений -->
+                        <div class="form-section history-section">
+                            <h2><i class="fas fa-history"></i> История изменений</h2>
+
+                            <div id="historyList">
+                                <?PHP
+                                $hist = CORE::$db->select("history","*",["plan_id"=>$plan["id"],"ORDER"=>["date"=>"DESC"]]);
+                                foreach ($hist as $hs):
+                                    $username = CORE::$db->select("user","username",["id"=>$hs["user_id"]])[0];
+
+                                    $date = DateTime::createFromFormat('Y-m-d H:i:s', $hs["date"])->format("d M Y H:i");
+                                    $icon = "fas fa-edit";
+                                    if($hs["type"] == "create")
+                                        $icon = "fa-plus-circle";
+                                    if($hs["type"] == "changestatus")
+                                        $icon = "fa-flag";
+
+                                    ?>
+                                    <div class="history-item">
+                                        <div class="history-icon">
+                                            <i class="fas <?= $icon ?> "></i>
+                                        </div>
+                                        <div class="history-content">
+                                            <div class="history-text"><?= $hs["value"]?></div>
+                                            <div class="history-date"><?= $date . ', '.$username?></div>
+                                        </div>
+                                    </div>
+
+                                <?PHP
+                                endforeach;
+                                ?>
+                            </div>
+                        </div>
+                    <?PHP endif; ?>
+                </div>
+
+                <div class="right-column">
+
+
+                    <!-- Привязка к другим планам -->
+                    <div class="form-section subplans-section">
+                        <h2><i class="fas fa-project-diagram"></i> Связь с другими планами</h2>
+
+                        <div class="form-group">
+                            <label for="parentPlanSelect">Родительский план</label>
+                            <select id="parentPlanSelect" class="form-select">
+                                <option value="" <?= ($plan && $plan["parent_id"] == null)?"selected":"" ?>>>Не выбран</option>
+                                <?PHP
+                                foreach (CORE::$db->select("plan",["name","id"],["id[!]"=>($plan?$plan["id"]:null)]) as $p):?>
+                                    <option value="<?=$p["id"]?>" <?= ($plan && $plan["parent_id"] == $p["id"])?"selected":"" ?> ><?=$p["name"]?></option>
+                                <?PHP
+                                endforeach;
+
+                                ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Подпланы (зависимые)</label>
+                            <div class="subplans-list" id="subplansList">
+                                <?PHP
+                                if($plan) {
+                                    $subplans = CORE::$db->select("plan",["name","id","status"],["parent_id"=>$plan["id"]]);
+                                    foreach ($subplans as $sp):?>
+                                        <div class="subplan-item">
+                                            <div class="subplan-title"><a href="/addplan.php?id=<?= $sp["id"] ?>"><?= $sp["name"]?></a></div>
+                                            <div class="subplan-status status-<?=$sp["status"]?>"><?= CORE::$statuses[$sp["status"]] ?></div>
+                                        </div>
+                                    <?PHP
+                                    endforeach;
+
+                                }
+                                ?>
+                            </div>
+
+                            <button class="btn btn-secondary" id="addSubplanBtn" style="width: 100%;">
+                                <i class="fas fa-link"></i> Привязать существующий план
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Прикрепление файлов -->
                     <div class="form-section">
                         <h2><i class="fas fa-paperclip"></i> Файлы</h2>
-                        
+
                         <div class="form-group">
                             <label>Прикрепите файлы</label>
                             <div class="file-upload-area" id="fileUploadArea">
@@ -399,58 +554,28 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                                 <p>или нажмите для выбора файлов</p>
                                 <input type="file" id="fileInput" multiple style="display: none;">
                             </div>
-                            
+
                             <div class="file-list" id="fileList">
-                               <?PHP
-                               if($plan) {
+                                <?PHP
+                                if($plan) {
 
-                                   $fileids = CORE::$db->select("file_to_plan", "file_id", ["plan_id" => $plan["id"]]);
-                                   $files = CORE::$db->select("files", "*", ["id" => $fileids]);
-                                   foreach ($files as $file)
-                                       echo addFileToList($file);
+                                    $fileids = CORE::$db->select("file_to_plan", "file_id", ["plan_id" => $plan["id"]]);
+                                    $files = CORE::$db->select("files", "*", ["id" => $fileids]);
+                                    foreach ($files as $file)
+                                        echo addFileToList($file);
 
-                               }
+                                }
 
-                               ?>
+                                ?>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Привязка к другим планам -->
-                    <div class="form-section subplans-section">
-                        <h2><i class="fas fa-project-diagram"></i> Связь с другими планами</h2>
-                        
-                        <div class="form-group">
-                            <label for="parentPlanSelect">Родительский план</label>
-                            <select id="parentPlanSelect" class="form-select">
-                                <option value="">Не выбран</option>
-                                <option value="1">Стратегическое планирование на 2024 год</option>
-                                <option value="2" selected>Развитие продуктовой линейки</option>
-                                <option value="3">Оптимизация бизнес-процессов</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Подпланы (зависимые)</label>
-                            <div class="subplans-list" id="subplansList">
-                                <div class="subplan-item">
-                                    <div class="subplan-title">Маркетинговая кампания</div>
-                                    <div class="subplan-status status-inprogress">В работе</div>
-                                </div>
-                                <div class="subplan-item">
-                                    <div class="subplan-title">Обучение отдела продаж</div>
-                                    <div class="subplan-status status-pending">Ожидание</div>
-                                </div>
-                            </div>
-                            
-                            <button class="btn btn-secondary" id="addSubplanBtn" style="width: 100%;">
-                                <i class="fas fa-link"></i> Привязать существующий план
-                            </button>
-                        </div>
-                    </div>
+
                 </div>
+
+
             </div>
-            
+
             <div class="form-actions">
                 <div>
                     <button class="btn btn-danger" id="deletePlanBtn">
@@ -476,7 +601,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     
     <script>
 
-        let fileToLoad = [];
+        let fileToLoad = [],fileRemoveList = [];
+
         // Инициализация Quill редактора
         const quill = new Quill('#editor', {
             theme: 'snow',
@@ -680,8 +806,9 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         }
 
         // Удаление файлов из списка
-        document.querySelectorAll('#fileList .file-remove').forEach(btn => {
-            btn.addEventListener('click', function() {
+        document.querySelectorAll('#fileList .file-item-loaded .file-remove').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                fileRemoveList.push($(e.currentTarget).parent().attr("data-id"));
                 this.closest('.file-item').remove();
             });
         });
@@ -693,7 +820,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
         // Добавление подплана
         document.getElementById('addSubplanBtn').addEventListener('click', function() {
-            alert('В полной версии будет открыт диалог выбора существующего плана для привязки как подплана.');
+            alert('Обязательно сделаем...');
         });
 
         // Обработчики кнопок сохранения
@@ -713,14 +840,16 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
             let formData = new FormData();
 
-            formData.append("plan_id",planData.plan_id);
+            formData.append("plan_id",planData.plan_id == null?"":planData.plan_id);
             formData.append("name",planData.name);
             formData.append("content",planData.content);
             formData.append("date_type",planData.date_type);
             formData.append("date_value",planData.date_value);
             formData.append("date_value",planData.date_value);
             formData.append("status",planData.status);
-            formData.append("parent_id",planData.status);
+            formData.append("parent_id",planData.parent_id);
+            for(let inx in fileRemoveList)
+                formData.append("fileRemoveList[]",fileRemoveList[inx]);
             for(let inx in planData.departments)
                 formData.append("departments[]",planData.departments[inx]);
 
@@ -740,7 +869,13 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                     if(e.result == "ok")
                         window.location = "/plan.php";
                     else{
-                        alert("Ошибки:\r\n"+e.errors.join("\r\n"));
+                        if(e.errors == null)
+                            alert("Прозошла какая-то ошибка");
+                        else if(Array.isArray(e.errors))
+                            alert("Ошибки:\r\n"+e.errors.join("\r\n"));
+                        else
+                            alert("Ошибка: "+e.errors);
+
                     }
                 }
             });
@@ -770,7 +905,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         function cancelEditing() {
             if (confirm('Вы уверены, что хотите отменить создание плана? Все несохраненные изменения будут потеряны.')) {
                 // В реальном приложении здесь будет перенаправление на список планов
-                window.location.href = 'plans_list.html';
+                window.location.href = '/plan.php';
             }
         }
 
@@ -780,9 +915,26 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         // Обработчик кнопки удаления
         document.getElementById('deletePlanBtn').addEventListener('click', function() {
             if (confirm('Вы уверены, что хотите удалить этот план? Это действие нельзя отменить.')) {
-                alert('План удален!');
-                // В реальном приложении здесь будет API запрос на удаление и перенаправление
-                window.location.href = 'plans_list.html';
+                $.ajax({
+                    type: "POST",
+                    url: "",
+                    data: {
+                        delete_plan_id: <?=  !is_null($plan) ?$plan["id"]: "null" ?> ,
+                    },
+                    success: function (e){
+                        if(e.result == "ok")
+                            window.location = "/plan.php";
+                        else{
+                            if(e.errors == null)
+                                alert("Прозошла какая-то ошибка");
+                            else if(Array.isArray(e.errors))
+                                alert("Ошибки:\r\n"+e.errors.join("\r\n"));
+                            else
+                                alert("Ошибка: "+e.errors);
+
+                        }
+                    }
+                });
             }
         });
 

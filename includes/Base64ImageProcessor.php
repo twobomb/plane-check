@@ -2,7 +2,7 @@
 class Base64ImageProcessor
 {
     private $uploadDir = 'uploaded/images/';
-    private $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    private $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml','image/x-icon'];
     private $baseUrl = '/uploaded/images/'; // Базовый URL для доступа к изображениям
 
     public function __construct()
@@ -21,6 +21,9 @@ class Base64ImageProcessor
      */
     public function processHtml($html)
     {
+
+
+
         // Ищем все base64 изображения в тексте
         $pattern = '/<img[^>]+src="data:image\/([^;]+);base64,([^">]+)"[^>]*>/i';
 
@@ -52,7 +55,6 @@ class Base64ImageProcessor
                 // Возвращаем тег с ссылкой на файл
                 return '<img src="' . $this->baseUrl . $fileName . '" alt="" class="quill-image">';
             }
-
             return $matches[0]; // Возвращаем оригинальный тег при ошибке сохранения
         }, $html);
     }

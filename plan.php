@@ -1,3 +1,63 @@
+<?php
+
+use Medoo\Medoo;
+
+include "includes/db.php";
+
+
+$plans = CORE::$db->query("SELECT id,name,(SELECT username FROM user WHERE plan.user_id=user.id) as username, SUBSTRING(TRIM(content),1,500) as description, (SELECT COUNT(*) FROM department_to_plan WHERE department_to_plan.plan_id = plan.id ) as departments, (SELECT COUNT(*) FROM point_to_plan WHERE point_to_plan.plan_id = plan.id ) as geoPoints, (SELECT COUNT(*) FROM file_to_plan WHERE file_to_plan.plan_id = plan.id ) as files, (SELECT COUNT(*) FROM plan as p1 WHERE p1.parent_id = plan.id ) as subplans, date_type,date_value,status,create_at FROM plan")->fetchAll();
+for($i = 0 ; $i < count($plans);$i++){
+    $plans[$i]["description"] = strip_tags($plans[$i]["description"]);
+    $plans[$i]["description"] = substr($plans[$i]["description"],0,250);
+    if(strlen($plans[$i]["description"]) == 250)
+        $plans[$i]["description"].="...";
+
+    //$plans[$i]["create_at"]= DateTime::createFromFormat('Y-m-d H:i:s', $plans[$i]["create_at"])->format("d M Y");
+
+    switch ($plans[$i]["date_type"]){
+        case "exact":
+            $plans[$i]["deadlineDate"] =  DateTime::createFromFormat('Y-m-d', $plans[$i]["date_value"])->format("d M Y");
+            break;
+        case "month":
+            $plans[$i]["deadlineDate"] =  DateTime::createFromFormat('Y-m-d', $plans[$i]["date_value"])->format("M Y");
+            break;
+        case "year":
+            $plans[$i]["deadlineDate"] =  DateTime::createFromFormat('Y-m-d', $plans[$i]["date_value"])->format("Y");
+            break;
+        default:
+            $plans[$i]["deadlineDate"] ="";
+    }
+    $targetDate = DateTime::createFromFormat('Y-m-d', $plans[$i]["date_value"]);
+    $today = new DateTime();
+    $plans[$i]["deadlineStyle"] = $targetDate < $today?"dealine-red":"dealine-normal";
+    if($plans[$i]["status"] == "completed")
+        $plans[$i]["deadlineStyle"] = "deadline-success";
+    if($plans[$i]["status"] == "rejected")
+        $plans[$i]["deadlineStyle"] = "deadline-normal";
+
+}
+
+$result = [];
+foreach ($plans as $plan){
+    array_push($result,[
+        "id"=>$plan["id"],
+        "title"=>$plan["name"],
+        "description"=>$plan["description"],
+        "dateType"=>$plan["date_type"],
+        "dateValue"=>$plan["date_value"],
+        "deadlineDate"=>$plan["deadlineDate"],
+        "status"=>$plan["status"],
+        "files"=>$plan["files"],
+        "username"=>$plan["username"],
+        "departments"=>$plan["departments"],
+        "geoPoints"=>$plan["geoPoints"],
+        "subplans"=>$plan["subplans"],
+        "deadlineStyle"=>$plan["deadlineStyle"],
+        "created"=>$plan["create_at"]
+    ]);
+}
+?>
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -13,7 +73,7 @@
         <div class="header">
             <h1><i class="fas fa-calendar-alt"></i> Управление планами</h1>
             <div class="header-actions">
-                <button class="btn btn-secondary">
+                <button class="btn btn-secondary" style="opacity: 0.3">
                     <i class="fas fa-download"></i> Экспорт
                 </button>
                 <button class="btn btn-primary" id="newPlanBtn">
@@ -27,7 +87,7 @@
                 <h2><i class="fas fa-filter"></i> Фильтры и сортировка</h2>
                 
                 <div class="filters-grid">
-                    <div class="filter-group">
+            <!--        <div class="filter-group">
                         <label for="departmentFilter"><i class="fas fa-sitemap"></i> Подразделение</label>
                         <select id="departmentFilter" class="filter-select" multiple>
                             <option value="all">Все подразделения</option>
@@ -43,7 +103,7 @@
                             <option value="Производство">Производство</option>
                             <option value="Качество">Качество</option>
                         </select>
-                    </div>
+                    </div>-->
                     
                     <div class="filter-group">
                         <label><i class="far fa-calendar-alt"></i> Период создания</label>
@@ -103,139 +163,18 @@
                 <!-- Планы будут загружены через JavaScript -->
             </div>
             
-            <div class="pagination">
+            <!--<div class="pagination">
                 <button class="page-btn active">1</button>
                 <button class="page-btn">2</button>
                 <button class="page-btn">3</button>
                 <button class="page-btn"><i class="fas fa-chevron-right"></i></button>
-            </div>
+            </div>-->
         </div>
     </div>
 
     <script>
         // Моковые данные для планов
-        const plansData = [
-            {
-                id: 1,
-                title: "Запуск нового продукта",
-                description: "Подготовка к запуску нового продукта на рынок, включая маркетинговую кампанию и обучение отдела продаж.",
-                dateType: "exact",
-                dateValue: "2023-10-15",
-                deadlineDate: "2023-10-15",
-                status: "inprogress",
-                files: 3,
-                geoPoints: 2,
-                departments: ["Маркетинг", "Продажи"],
-                subplans: 2,
-                created: "2023-09-10",
-                updated: "2023-09-28"
-            },
-            {
-                id: 2,
-                title: "Обновление ИТ-инфраструктуры",
-                description: "Модернизация серверного оборудования и переход на новую версию CRM системы.",
-                dateType: "month",
-                dateValue: "2023-11",
-                deadlineDate: "2023-11-30",
-                status: "pending",
-                files: 5,
-                geoPoints: 1,
-                departments: ["ИТ"],
-                subplans: 0,
-                created: "2023-09-05",
-                updated: "2023-09-05"
-            },
-            {
-                id: 3,
-                title: "Корпоративное мероприятие",
-                description: "Организация ежегодного корпоративного мероприятия для сотрудников компании.",
-                dateType: "exact",
-                dateValue: "2023-12-20",
-                deadlineDate: "2023-12-20",
-                status: "pending",
-                files: 8,
-                geoPoints: 3,
-                departments: ["HR", "Администрация"],
-                subplans: 4,
-                created: "2023-08-15",
-                updated: "2023-09-25"
-            },
-            {
-                id: 4,
-                title: "Оптимизация бизнес-процессов",
-                description: "Анализ и оптимизация ключевых бизнес-процессов для повышения эффективности.",
-                dateType: "year",
-                dateValue: "2023",
-                deadlineDate: "2023-12-31",
-                status: "completed",
-                files: 12,
-                geoPoints: 0,
-                departments: ["Аналитика", "Операции"],
-                subplans: 3,
-                created: "2023-01-10",
-                updated: "2023-08-30"
-            },
-            {
-                id: 5,
-                title: "Стратегическое планирование",
-                description: "Разработка стратегии развития компании на следующий год.",
-                dateType: "month",
-                dateValue: "2023-10",
-                deadlineDate: "2023-10-31",
-                status: "inprogress",
-                files: 6,
-                geoPoints: 0,
-                departments: ["Руководство", "Стратегия"],
-                subplans: 1,
-                created: "2023-09-01",
-                updated: "2023-09-20"
-            },
-            {
-                id: 6,
-                title: "Исследование рынка",
-                description: "Проведение исследования новых рынков для возможной экспансии.",
-                dateType: "without",
-                dateValue: null,
-                deadlineDate: null,
-                status: "pending",
-                files: 4,
-                geoPoints: 5,
-                departments: ["Аналитика", "Маркетинг"],
-                subplans: 0,
-                created: "2023-09-15",
-                updated: "2023-09-15"
-            },
-            {
-                id: 7,
-                title: "Обучение персонала",
-                description: "Проведение тренингов для сотрудников отдела продаж.",
-                dateType: "exact",
-                dateValue: "2023-11-05",
-                deadlineDate: "2023-11-05",
-                status: "completed",
-                files: 7,
-                geoPoints: 1,
-                departments: ["HR", "Продажи"],
-                subplans: 0,
-                created: "2023-08-20",
-                updated: "2023-09-10"
-            },
-            {
-                id: 8,
-                title: "Внедрение системы контроля качества",
-                description: "Внедрение новой системы контроля качества продукции.",
-                dateType: "exact",
-                dateValue: "2023-10-30",
-                deadlineDate: "2023-10-30",
-                status: "rejected",
-                files: 3,
-                geoPoints: 2,
-                departments: ["Производство", "Качество"],
-                subplans: 2,
-                created: "2023-08-05",
-                updated: "2023-09-12"
-            }
-        ];
+        const plansData = <?= json_encode($result,JSON_UNESCAPED_UNICODE)?>;
 
         // Все доступные подразделения
         const allDepartments = ["Маркетинг", "Продажи", "ИТ", "HR", "Администрация", "Аналитика", "Операции", "Руководство", "Стратегия", "Производство", "Качество"];
@@ -263,16 +202,22 @@
             }
             
             if (dateType === 'month') {
-                const date = new Date(dateValue + '-01');
-                return date.toLocaleDateString('ru-RU', { 
-                    month: 'long', 
-                    year: 'numeric' 
+                const date = new Date(dateValue);
+                let s=  date.toLocaleDateString('ru-RU', {
+                    month: 'long',
+                    year: 'numeric'
+                });
+                if(s.length > 1)
+                    s =  s[0].toUpperCase()+s.substr(1,s.length-1);
+                return s;
+            }
+            if (dateType === 'year') {
+                const date = new Date(dateValue);
+                return date.toLocaleDateString('ru-RU', {
+                    year: 'numeric'
                 });
             }
-            
-            if (dateType === 'year') {
-                return dateValue;
-            }
+
             
             return dateValue;
         }
@@ -376,19 +321,14 @@
                     <div class="plan-header">
                         <div class="plan-title">${plan.title}</div>
                         <div class="plan-meta">
-                            <div class="plan-date">
-                                <i class="far fa-calendar"></i>
+                            <div class="plan-date ${plan.deadlineStyle}">
+                                <i class="far ${plan.deadlineStyle == "dealine-red"?'fa-calendar-times':'fa-calendar'}"></i>
                                 ${formatDate(plan.dateType, plan.dateValue)}
                             </div>
                             <div class="plan-status status-${plan.status}">
                                 ${getStatusText(plan.status)}
                             </div>
                         </div>
-                        ${plan.departments.length > 0 ? `
-                        <div class="department-tags">
-                            ${plan.departments.map(dept => `<span class="department-tag">${dept}</span>`).join('')}
-                        </div>
-                        ` : ''}
                     </div>
                     
                     <div class="plan-content">
@@ -409,38 +349,45 @@
                             </div>
                             ` : ''}
                             <div class="feature-tag">
-                                <i class="fas fa-calendar-plus"></i> Создан: ${new Date(plan.created).toLocaleDateString('ru-RU')}
+                                <i class="fas fa-calendar-plus"></i> Подразделений: ${plan.departments}
                             </div>
                         </div>
                     </div>
                     
                     <div class="plan-footer">
                         <div class="plan-history">
-                            <div>Изменен: ${new Date(plan.updated).toLocaleDateString('ru-RU')}</div>
+                            <div>Создал: ${plan.username}, ${  (new Date(plan.created)).toLocaleDateString('ru-RU', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour:'numeric',
+            minute:'numeric',
+            })}</div>
                         </div>
-                        <div class="plan-actions">
+                        <div class="plan-actions" data-id="${plan.id}">
                             <button class="icon-btn" title="Просмотреть">
                                 <i class="fas fa-eye"></i>
                             </button>
                             <button class="icon-btn" title="Редактировать">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="icon-btn" title="Привязать файлы">
-                                <i class="fas fa-paperclip"></i>
-                            </button>
                         </div>
                     </div>
                 </div>
             `).join('');
-            
             // Обновляем счетчик
             document.querySelector('.plans-count').textContent = `Найдено: ${plans.length} планов`;
             
             // Добавляем обработчики событий для кнопок действий
             document.querySelectorAll('.plan-actions .icon-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
+                btn.addEventListener('click', function(ev) {
                     const action = this.getAttribute('title');
-                    alert(`Действие: ${action}. В полной версии будет реализовано.`);
+                    if(action == "Редактировать"){
+                        window.location.href = "/addplan.php?id="+ev.currentTarget.parentNode.getAttribute("data-id");
+                    }
+                    if(action == "Просмотреть"){
+                        window.location.href = "/showplan.php?id="+ev.currentTarget.parentNode.getAttribute("data-id");
+                    }
                 });
             });
         }
@@ -468,10 +415,10 @@
             document.getElementById('dateTo').value = filterState.dateTo || '';
             
             // Подразделения (упрощенно)
-            const departmentSelect = document.getElementById('departmentFilter');
+            /*const departmentSelect = document.getElementById('departmentFilter');
             Array.from(departmentSelect.options).forEach(option => {
                 option.selected = filterState.departments.includes(option.value);
-            });
+            });*/
         }
 
         // Инициализация
@@ -508,13 +455,13 @@
             });
             
             // Обработчик для фильтра по подразделениям
-            document.getElementById('departmentFilter').addEventListener('change', function() {
+            /*document.getElementById('departmentFilter').addEventListener('change', function() {
                 const selectedOptions = Array.from(this.selectedOptions);
                 filterState.departments = selectedOptions.map(option => option.value);
                 if (filterState.departments.length === 0) {
                     filterState.departments = ['all'];
                 }
-            });
+            });*/
             
             // Обработчик для кнопки "Применить"
             document.getElementById('applyFiltersBtn').addEventListener('click', function() {
@@ -537,7 +484,7 @@
             
             // Обработчик для кнопки "Новый план"
             document.getElementById('newPlanBtn').addEventListener('click', function() {
-                alert('Форма создания нового плана будет открыта в следующей версии');
+                window.location.href = "/addplan.php";
             });
             
             // Инициализация UI фильтров
