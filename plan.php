@@ -3,6 +3,7 @@
 use Medoo\Medoo;
 
 include "includes/db.php";
+require_once "includes/auth_check.php";
 
 
 $plans = CORE::$db->query("SELECT id,name,(SELECT username FROM user WHERE plan.user_id=user.id) as username, SUBSTRING(TRIM(content),1,500) as description, (SELECT COUNT(*) FROM department_to_plan WHERE department_to_plan.plan_id = plan.id ) as departments, (SELECT COUNT(*) FROM point_to_plan WHERE point_to_plan.plan_id = plan.id ) as geoPoints, (SELECT COUNT(*) FROM file_to_plan WHERE file_to_plan.plan_id = plan.id ) as files, (SELECT COUNT(*) FROM plan as p1 WHERE p1.parent_id = plan.id ) as subplans, date_type,date_value,status,create_at FROM plan")->fetchAll();
@@ -67,12 +68,22 @@ foreach ($plans as $plan){
     <link rel="stylesheet" href="/css/fontawesome-free-6.7.2-web/css/all.min.css">
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/plan.css" >
+    <link rel="stylesheet" href="/css/main.css" >
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-calendar-alt"></i> Управление планами</h1>
             <div class="header-actions">
+
+
+                <div class="header-profile">
+                    <span class="profile-username"><?= getUser()["username"]?></span>
+                    <a href="/logout.php">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выход
+                    </a>
+                </div>
                 <button class="btn btn-secondary" style="opacity: 0.3">
                     <i class="fas fa-download"></i> Экспорт
                 </button>

@@ -4,19 +4,35 @@ require_once "vendor/autoload.php";
 require_once "Base64ImageProcessor.php";
 
  class CORE {
+     const MAPSITE = "http://map.mchs.lnr";
      public static $db ;
      public static $dateTypes = ["exact"=>"Конкретная дата","month"=>"Месяц","year"=>"Год","without"=>"Без даты"];
      public static $statuses = ["pending"=>"Ожидание","inprogress"=>"В работе","completed"=>"Выполнен","rejected"=>"Отклонен"];
  }
  CORE::$db =new Medoo\Medoo([
      'database_type' => 'mysql',
-     'database_name' => 'map-check',
+     'database_name' => 'plan-check',
      'server' => 'localhost',
      'username' => 'root',
+     'charset' => 'utf8mb4',
      'password' => '123456'
  ]);
 
 
+ function getAllowedProjects($type,$uid = null){
+     $projects = [];
+    if($uid == null)
+        $uid = getUserId();
+     $projects = [];
+     switch ($type){
+         case "for_open":// Какие проекты мы можем октрыть
+            $projects = CORE::$db->query("SELECT * FROM project WHERE access = 'public' OR access = 'protected' OR (access = 'private' AND user_id = '$uid')")->fetchAll();
+            break;
+         case "for_save": default:// В какие проекты пользователь может сохранять
+            $projects = CORE::$db->query("SELECT * FROM project WHERE access = 'public' OR (access = 'protected' AND user_id = '$uid') OR (access = 'private' AND user_id = '$uid')")->fetchAll();
+     }
+     return $projects;
+ }
  function addHistory($planId,$type,$value){
     CORE::$db->insert("history",[
        "user_id"=>getUserId(),
@@ -27,9 +43,21 @@ require_once "Base64ImageProcessor.php";
       return is_null(CORE::$db->error);
  }
  function getUserId(){
-     return 1;
+     return getUser()["id"];
  }
 
+// Функция для получения информации о текущем пользователе
+function getUser() {
+    if (!isset($_SESSION['user_id'])) {
+        return null;
+    }
+
+    return [
+        'id' => $_SESSION['user_id'],
+        'login' => $_SESSION['login'],
+        'username' => $_SESSION['username']
+    ];
+}
 function getDeps(){
      $result = [];
      $db = CORE::$db;

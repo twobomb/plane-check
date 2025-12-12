@@ -1,5 +1,6 @@
 <?php
 include "includes/db.php";
+require_once "includes/auth_check.php";
 
 if(isset($_GET["id"]) && CORE::$db->count("files",["id"=>$_GET["id"]]) > 0){
     $url = CORE::$db->select("files","url",["id"=>$_GET["id"]])[0];

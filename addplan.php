@@ -1,6 +1,7 @@
 <?PHP
 require_once "includes/db.php";
 
+require_once "includes/auth_check.php";
 
 function validatePlan($p){
     $errors = [];
@@ -293,6 +294,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     <link href="/css/quill.snow.css" rel="stylesheet">
     <link href="/css/select2.min.css" rel="stylesheet">
     <link href="/css/addplan.css" rel="stylesheet">
+    <link href="/css/main.css" rel="stylesheet">
 
 </head>
 <body>
@@ -300,6 +302,14 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         <div class="header">
             <h1><i class="fas fa-calendar-plus"></i> <?= $plan == null?"Создание нового плана":"Редактирование плана ID #$plan[id]" ?></h1>
             <div class="header-actions">
+
+                <div class="header-profile">
+                    <span class="profile-username"><?= getUser()["username"]?></span>
+                    <a href="/logout.php">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выход
+                    </a>
+                </div>
                 <button class="btn btn-secondary" id="cancelBtn">
                     <i class="fas fa-times"></i> Отмена
                 </button>

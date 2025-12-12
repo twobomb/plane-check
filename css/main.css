@@ -1,0 +1,29 @@
+.header-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.profile-username {
+    color: white;
+    font-weight: 500;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.header-profile a {
+    color: white;
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.header-profile a:hover {
+    background: rgba(255, 255, 255, 0.25);
+}

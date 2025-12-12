@@ -1,5 +1,7 @@
 <?php
     include "includes/db.php";
+    require_once "includes/auth_check.php";
+
 
     if($_SERVER["REQUEST_METHOD"] == "POST"){
         try {
@@ -87,7 +89,7 @@
                 "id"=>$pnt["id"],
                 "name"=>$pnt["name"],
                 "lat"=>$pnt["lat"],
-                "lon"=>$pnt["lon"],
+                "lng"=>$pnt["lng"],
                 "description"=>$pnt["description"],
                 "address"=>$pnt["addr"],
             ]);
@@ -116,6 +118,7 @@
     <link href="/css/fontawesome-free-6.7.2-web/css/all.min.css" rel="stylesheet">
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
     <link href="/css/quill.snow.css" rel="stylesheet">
+    <link href="/css/main.css" rel="stylesheet">
 
     <style>
         * {
@@ -153,6 +156,7 @@
         }
 
         .header h1 {
+            margin-right: auto;
             font-size: 28px;
             font-weight: 700;
             display: flex;
@@ -945,6 +949,14 @@
     <div class="header">
         <h1><i class="fas fa-eye"></i> Просмотр плана</h1>
         <div class="header-actions">
+
+            <div class="header-profile">
+                <span class="profile-username"><?= getUser()["username"]?></span>
+                <a href="/logout.php">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Выход
+                </a>
+            </div>
             <a href="plan.php" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Назад к списку
             </a>
@@ -955,6 +967,7 @@
                 <i class="fas fa-flag"></i> Изменить статус
             </button>
         </div>
+
     </div>
 
     <div class="content">
@@ -1104,15 +1117,7 @@
             <div class="section">
                 <h2><i class="fas fa-map-marked-alt"></i> Карта плана</h2>
                 <div class="map-container">
-                    <div class="map-placeholder" id="mapPlaceholder">
-                        <i class="fas fa-map-marked-alt"></i>
-                        <h3>Карта геоточек плана</h3>
-                        <p>Здесь будет отображаться карта со всеми привязанными геоточками плана</p>
-                        <div style="margin-top: 30px; padding: 15px; background: white; border-radius: 8px; border: 1px dashed #dee2e6; max-width: 600px;">
-                            <div style="font-family: monospace; font-size: 12px; margin-bottom: 10px;">
-                                &lt;iframe src="КАРТА_URL" width="100%" height="400" frameborder="0"&gt;&lt;/iframe&gt;
-                            </div>
-                    </div>
+                    <iframe src="http://tileserver.mchs.lnr?controls=0" width="100%" height="400" frameborder="0" > </iframe>
                 </div>
             </div>
         </div>
@@ -1384,7 +1389,7 @@
                                     ${point.name}
                                 </div>
                                 <div class="geopoint-coords">
-                                    ${point.lat}, ${point.lon}
+                                    ${point.lat}, ${point.lng}
                                 </div>
                             </div>
                             <div class="geopoint-description">
