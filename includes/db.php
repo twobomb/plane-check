@@ -4,6 +4,9 @@ require_once "vendor/autoload.php";
 require_once "Base64ImageProcessor.php";
 require_once "includes/config.php";
 
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
  class CORE {
      const MAPSITE = "http://map.mchs.lnr";
      public static $db ;

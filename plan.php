@@ -57,9 +57,7 @@ foreach ($plans as $plan){
         "created"=>$plan["create_at"]
     ]);
 }
-?>
-
-<!DOCTYPE html>
+?><!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -73,7 +71,7 @@ foreach ($plans as $plan){
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-calendar-alt"></i> Управление планами</h1>
+            <h1><?PHP include "includes/menu.php"?><i class="fas fa-calendar-alt"></i> Управление планами</h1>
             <div class="header-actions">
 
                 <?PHP include  "includes/avatar_block.php"; ?>
@@ -176,6 +174,7 @@ foreach ($plans as $plan){
         </div>
     </div>
 
+    <script src="/js/main.js"></script>
     <script>
         // Моковые данные для планов
         const plansData = <?= json_encode($result,JSON_UNESCAPED_UNICODE)?>;

@@ -601,7 +601,8 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
 <body>
 <div class="container">
     <div class="header">
-        <h1><i class="fas fa-users-cog"></i> Управление пользователями</h1>
+        <h1><?PHP include "includes/menu.php"?><i class="fas fa-users-cog"></i> Управление пользователями</h1>
+
         <div class="header-actions">
             <?PHP include  "includes/avatar_block.php"; ?>
             <button class="btn btn-primary" id="addUserBtn">
@@ -978,6 +979,7 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
     </div>
 </div>
 
+<script src="/js/main.js"></script>
 <script>
     // DOM элементы
     const elements = {

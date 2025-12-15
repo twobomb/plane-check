@@ -531,7 +531,7 @@ foreach ($projects as $prj){
 <body>
 <div class="container">
     <div class="header">
-        <h1><i class="fas fa-map"></i> Проекты карт</h1>
+        <h1><?PHP include "includes/menu.php"?><i class="fas fa-map"></i> Проекты карт</h1>
         <div class="header-actions">
            <?PHP include  "includes/avatar_block.php"; ?>
             <button class="btn btn-primary">
@@ -568,6 +568,7 @@ foreach ($projects as $prj){
     </div>
 </div>
 
+<script src="/js/main.js"></script>
 <script>
     // Моковые данные для проектов карт
     const projectsData = <?= json_encode($result,JSON_UNESCAPED_UNICODE) ?>;

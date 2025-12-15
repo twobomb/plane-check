@@ -1,6 +1,7 @@
 <?php
     include "includes/db.php";
     require_once "includes/auth_check.php";
+    include "includes/OneTimeToken.php";
 
 
     if($_SERVER["REQUEST_METHOD"] == "POST"){
@@ -941,13 +942,14 @@
                 font-size: 20px;
             }
         }
+
     </style>
 </head>
 <body>
 <div class="container">
     <!-- Шапка страницы -->
     <div class="header">
-        <h1><i class="fas fa-eye"></i> Просмотр плана</h1>
+        <h1><?PHP include "includes/menu.php"?><i class="fas fa-eye"></i> Просмотр плана</h1>
         <div class="header-actions">
 
             <?PHP include  "includes/avatar_block.php"; ?>
@@ -1106,12 +1108,22 @@
             </div>
         </div>
 
+
+
         <!-- Карта на всю ширину -->
         <div class="full-width-section">
             <div class="section">
                 <h2><i class="fas fa-map-marked-alt"></i> Карта плана</h2>
                 <div class="map-container">
-                    <iframe src="http://tileserver.mchs.lnr?controls=0" width="100%" height="400" frameborder="0" > </iframe>
+                    <?PHP
+                        $otp = new OneTimeToken();
+                        $token = $otp->generateToken([
+                            'user_id' => getUserId(),
+                            'plan_id' => $planData["id"]
+                        ], 10, 15); // Однократное использование, 15 минут жизни
+
+                    ?>
+                    <iframe src="<?= CORE::MAPSITE."?load-token-plan=$token&controls=0" ?>" width="100%" height="400" frameborder="0" > </iframe>
                 </div>
             </div>
         </div>
@@ -1139,7 +1151,7 @@
 
 <!-- Подключаем jQuery -->
 <script src="/js/jquery-3.6.0.min.js"></script>
-
+<script src="/js/main.js"></script>
 <script>
     $(document).ready(function() {
         // Моковые данные для плана
@@ -1345,7 +1357,7 @@
             container.empty();
             departmentsData.forEach(dept => {
                 const deptCard = `
-                        <a href="department.html?id=${dept.id}" class="department-card">
+                        <div class="department-card">
                             <div class="department-icon">
                                 <i class="fas fa-building"></i>
                             </div>
@@ -1353,7 +1365,7 @@
                             <div class="department-info">
                                 <div style="margin-top: 5px; font-size: 12px;">${dept.address}</div>
                             </div>
-                        </a>
+                        </div>
                     `;
                 container.append(deptCard);
             });
@@ -1387,7 +1399,7 @@
                                 </div>
                             </div>
                             <div class="geopoint-description">
-                                ${point.description}
+                                ${point.description?point.description:""}
                                 <div style="font-size: 13px; color: #6c757d; margin-top: 5px;">
                                     <i class="fas fa-map-pin"></i> ${point.address}
                                 </div>

@@ -44,13 +44,11 @@ function validatePlan($p){
 
     if(!isset($p["departments"]))
         $p["departments"] = [];
-    if(!isset($p["geoPoints"]))
-        $p["geoPoints"] = [];
+    if(!isset($p["Points"]))
+        $p["Points"] = [];
 
     if(count($p["departments"]) > 0 && CORE::$db->count("department",["id"=>$p["departments"]]) != count($p["departments"]))
         array_push($errors,"Указаны неверные подразделения!");
-    if( count($p["geoPoints"]) > 0 && CORE::$db->count("point",["id"=>$p["geoPoints"]]) != count($p["geoPoints"]))
-        array_push($errors,"Указаны неверные геоточки!");
     if (!empty($p["parent_id"]) && CORE::$db->count("plan",["id"=>$p["parent_id"]]) == 0 )
         array_push($errors,"Родительский план не найден!");
 
@@ -157,14 +155,44 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             }
 
 
+            $pids = array_values(CORE::$db->select("point_to_plan","point_id", ["plan_id"=>$pid]));
+            $isHaveNew = false;
 
-            if(array_count_values(CORE::$db->select("point_to_plan","point_id" ,["plan_id"=>$pid]))
-                !=  array_count_values($data["geoPoints"]))
+            if(count($pids) > 0) {
+                CORE::$db->delete("point_to_plan", ["plan_id" => $pid]);
+
+                if (!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! " . CORE::$db->error);
+                CORE::$db->delete("point", ["id" => $pids]);
+
+                if (!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! " . CORE::$db->error);
+            }
+            foreach ($data["Points"] as $point){
+                if($point["is_new"] === "1")
+                    $isHaveNew = true;
+                CORE::$db->insert("point", [
+                    "type" => "planpoint",
+                    "lat"=>$point["lat"],
+                    "lng"=>$point["lng"],
+                    "name"=>$point["name"],
+                ]);
+                if (!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! " . CORE::$db->error);
+
+                CORE::$db->insert("point_to_plan", [
+                    "point_id" => CORE::$db->id(),
+                    "plan_id" => $pid
+                ]);
+
+                if (!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! " . CORE::$db->error);
+            }
+
+            if(count($pids) != count($data["Points"]) || $isHaveNew)
                 addHistory($pid,"edit","Изменены привязанные геоточки");
 
-            CORE::$db->delete("point_to_plan", ["plan_id"=>$pid]);
-            if (!is_null(CORE::$db->error))
-                throw new Exception("Ошибка БД! " . CORE::$db->error);
+
 
             foreach ($data["geoPoints"] as $geoid) {
                 CORE::$db->insert("point_to_plan", [
@@ -174,6 +202,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 if(!is_null(CORE::$db->error))
                     throw new Exception("Ошибка БД! ".CORE::$db->error);
             }
+
+
 
             $removeFileIds = CORE::$db->select("file_to_plan","file_id", ["plan_id"=>$pid,"file_id"=>$data["fileRemoveList"]]);
             if(!is_null(CORE::$db->error))
@@ -242,14 +272,26 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                     throw new Exception("Ошибка БД! ".CORE::$db->error);
             }
 
-            foreach ($data["geoPoints"] as $geoid) {
+
+            foreach ($data["Points"] as $point){
+                CORE::$db->insert("point", [
+                    "type" => "planpoint",
+                    "lat"=>$point["lat"],
+                    "lng"=>$point["lng"],
+                    "name"=>$point["name"],
+                ]);
+                if (!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! " . CORE::$db->error);
+
                 CORE::$db->insert("point_to_plan", [
-                    "point_id" => $geoid,
+                    "point_id" => CORE::$db->id(),
                     "plan_id" => $pid
                 ]);
-                if(!is_null(CORE::$db->error))
-                    throw new Exception("Ошибка БД! ".CORE::$db->error);
+
+                if (!is_null(CORE::$db->error))
+                    throw new Exception("Ошибка БД! " . CORE::$db->error);
             }
+
 
             $file_ids  =  [];
             foreach ($_FILES["file"]["tmp_name"] as $i=>$tmpname) {
@@ -288,6 +330,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Создание плана - Система управления</title>
     <link rel="stylesheet" href="/css/fontawesome-free-6.7.2-web/css/all.min.css">
+    <link rel="stylesheet" href="/js/dist/leaflet.css" />
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
     
     <!-- Библиотеки для редактора и выпадающих списков -->
@@ -300,7 +343,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-calendar-plus"></i> <?= $plan == null?"Создание нового плана":"Редактирование плана ID #$plan[id]" ?></h1>
+            <h1><?PHP include "includes/menu.php"?><i class="fas fa-calendar-plus"></i> <?= $plan == null?"Создание нового плана":"Редактирование плана ID #$plan[id]" ?></h1>
             <div class="header-actions">
 
                 <?PHP include  "includes/avatar_block.php"; ?>
@@ -438,28 +481,16 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                         <h2><i class="fas fa-map-marker-alt"></i> Геоточки</h2>
 
                         <div class="form-group">
-                            <label for="geoPointsSelect">Выберите геоточки</label>
-                            <select id="geoPointsSelect" class="form-select" multiple="multiple">
-                                <?PHP
-
-                                $geoids =[];
-                                if($plan)
-                                    $geoids = array_values(CORE::$db->select("point_to_plan","point_id",["plan_id"=>$plan["id"]]));
-                                foreach (getGeopoint() as $point):
-                                    $selected = in_array($point["id"],$geoids)?"selected":"";
-                                    ?>
-                                    <option value="<?= $point["id"]?>" <?=$selected ?> ><?= $point["name"]?></option>
-                                <?PHP
-                                endforeach;
-                                ?>
-                            </select>
-                            <div style="margin-top: 8px; font-size: 13px; color: #6c757d;">
-                                <i class="fas fa-info-circle"></i> Вы можете выбрать несколько геоточек
+                            <div class="markers-list" id="markersList">
+                                <div class="markers-header">Список меток</div>
+                                <div class="markers-container" id="markersContainer">
+                                </div>
                             </div>
+
                         </div>
 
                         <div class="form-group">
-                            <button class="btn btn-secondary" id="addGeoPointBtn" style="width: 100%;">
+                            <button class="btn btn-secondary" id="addMarkerBtn" style="width: 100%;">
                                 <i class="fas fa-plus"></i> Добавить новую геоточку
                             </button>
                         </div>
@@ -564,7 +595,9 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                                 if($plan) {
 
                                     $fileids = CORE::$db->select("file_to_plan", "file_id", ["plan_id" => $plan["id"]]);
-                                    $files = CORE::$db->select("files", "*", ["id" => $fileids]);
+                                    $files = [];
+                                    if(count($fileids) > 0)
+                                        $files = CORE::$db->select("files", "*", ["id" => $fileids]);
                                     foreach ($files as $file)
                                         echo addFileToList($file);
 
@@ -598,10 +631,53 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         </div>
     </div>
 
+
+
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Добавление геоточки</div>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div id="map"></div>
+
+                <div class="map-controls">
+                    <div class="map-type-buttons">
+                        <button class="map-type-btn active" data-type="streets">Схема</button>
+                        <button class="map-type-btn" data-type="satellite">Спутник</button>
+                        <button class="map-type-btn" data-type="hybrid">Гибрид</button>
+                    </div>
+                    <div class="coords-display" id="coordsDisplay">
+                        Кликните на карту для выбора координат
+                    </div>
+                </div>
+
+                <div class="marker-form">
+                    <div class="form-group">
+                        <label for="markerName">Название метки</label>
+                        <input type="text" id="markerName" class="form-input" placeholder="Введите название метки">
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" id="cancelBtnMarker">Отмена</button>
+                        <button class="btn btn-primary" id="saveMarkerBtn">Сохранить метку</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Подключение библиотек -->
     <script src="/js/quill.min.js"></script>
     <script src="/js/jquery-3.6.0.min.js"></script>
     <script src="/js/select2.min.js"></script>
+    <script src="/js/dist/leaflet.js"></script>
+    <script src="/js/main.js"></script>
+
     
     <script>
 
@@ -817,10 +893,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             });
         });
 
-        // Добавление новой геоточки
-        document.getElementById('addGeoPointBtn').addEventListener('click', function() {
-            alert("Позже..")
-        });
 
         // Добавление подплана
         document.getElementById('addSubplanBtn').addEventListener('click', function() {
@@ -838,7 +910,6 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 date_value: getDateValue(),
                 status: document.querySelector('.status-option.selected').dataset.status,
                 departments: $('#departmentsSelect').val(),
-                geoPoints: $('#geoPointsSelect').val(),
                 parent_id: $('#parentPlanSelect').val()
             };
 
@@ -857,8 +928,9 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             for(let inx in planData.departments)
                 formData.append("departments[]",planData.departments[inx]);
 
-            for(let inx in planData.geoPoints)
-                formData.append("geoPoints[]",planData.geoPoints[inx]);
+            $(".marker-info input").each((inx,el)=>{
+                formData.append($(el).attr("name"),$(el).attr("value"));
+            });
             for(let  inx in fileToLoad)
                 formData.append("file[]", fileToLoad[inx]);
 
@@ -993,5 +1065,296 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             historyList.insertBefore(historyItem, historyList.firstChild);
         }
     </script>
+
+
+
+<!--    ОБРАБОТИКА КАРТЫ-->
+
+    <script>
+        // Переменные
+        let map;
+        let selectedCoords = null;
+        let marker = null;
+        <?PHP
+
+        $geoids = [];
+        if($plan)
+            $geoids = array_values(CORE::$db->select("point_to_plan","point_id",["plan_id"=>$plan["id"]]));
+        $points =[];
+        if(count($geoids) > 0)
+            $points = CORE::$db->select("point","*",["id"=>$geoids]);
+        for ($i = 0; $i < count($points);$i++){
+            $points[$i]["is_new"] =false;
+            $points[$i]["lat"] = floatval($points[$i]["lat"]);
+            $points[$i]["lng"] = floatval($points[$i]["lng"]);
+        }
+
+        ?>
+        let markers = <?= json_encode($points)?>;
+
+        // Элементы DOM
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalClose = document.getElementById('modalClose');
+        const cancelBtn = document.getElementById('cancelBtnMarker');
+        const addMarkerBtn = document.getElementById('addMarkerBtn');
+        const saveMarkerBtn = document.getElementById('saveMarkerBtn');
+        const coordsDisplay = document.getElementById('coordsDisplay');
+        const markerNameInput = document.getElementById('markerName');
+        const mapTypeButtons = document.querySelectorAll('.map-type-btn');
+        const markersList = document.getElementById('markersList');
+        const markersContainer = document.getElementById('markersContainer');
+
+        // Типы карт
+        const mapLayers = {
+            streets: L.tileLayer('http://map.mchs.lnr/tile/{z}/{x}/{y}.png', {
+                attribution: false,
+                crs: L.CRS.EPSG3857
+            }),
+            satellite: L.tileLayer('http://map.mchs.lnr/downloaded/tiles/satellite/{z}/{x}/{y}.jpg', {
+                attribution: false,
+                crs: L.CRS.EPSG3395
+            }),
+            hybrid: L.tileLayer('http://map.mchs.lnr/downloaded/tiles/hybrid/{z}/{x}/{y}.jpg', {
+                attribution: false,
+                crs: L.CRS.EPSG3395
+            })
+        };
+
+        // Инициализация карты
+        function initMap(type = "streets",changeMode = false) {
+            let center = {lat:48.563665, lng:39.311153};
+            let zoom = 10;
+            let crs = (type == "streets")?L.CRS.EPSG3857:L.CRS.EPSG3395;
+
+            if(map){
+                // Сохраняем текущее состояние карты
+                center = map.getCenter();
+                zoom = map.getZoom();
+
+                map.eachLayer(function(layer) {
+                    if (layer instanceof L.TileLayer) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                map.remove();
+                map.off();
+                map = null;
+            }
+
+            // Центр по умолчанию (Москва)
+            map = L.map('map',{
+                crs
+            }).setView([center.lat,center.lng], zoom);
+            // Добавляем слой по умолчанию
+
+            if(type == "hybrid")
+                mapLayers["satellite"].addTo(map);
+
+            // Добавляем выбранный слой
+            mapLayers[type].addTo(map);
+
+
+            if (marker) {
+                marker.addTo(map);
+            }
+            // Обработчик клика по карте
+            map.on('click', function(e) {
+                selectedCoords = e.latlng;
+
+                // Обновляем отображение координат
+                coordsDisplay.textContent =
+                    `Широта: ${selectedCoords.lat.toFixed(6)}, Долгота: ${selectedCoords.lng.toFixed(6)}`;
+
+                // Удаляем предыдущий маркер
+                if (marker) {
+                    map.removeLayer(marker);
+                }
+
+                // Добавляем новый маркер
+                marker = L.marker(selectedCoords).addTo(map);
+            });
+            map.invalidateSize();
+
+            mapTypeButtons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.type === type) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+
+        // Смена типа карты
+        function changeMapType(type) {
+            initMap(type,true);
+        }
+
+        // Сохранение метки
+        function saveMarker() {
+            if (!selectedCoords || !markerNameInput.value.trim()) {
+                alert('Выберите точку на карте и введите название');
+                return;
+            }
+
+            const newMarker = {
+                id: Date.now(),
+                name: markerNameInput.value.trim(),
+                lat: selectedCoords.lat,
+                lng: selectedCoords.lng,
+                is_new: true,
+                createdAt: new Date().toISOString()
+            };
+
+            markers.push(newMarker);
+            localStorage.setItem('markers', JSON.stringify(markers));
+
+            // Закрываем модальное окно
+            closeModal();
+
+            // Очищаем форму
+            markerNameInput.value = '';
+            selectedCoords = null;
+            if (marker) {
+                map.removeLayer(marker);
+                marker = null;
+            }
+
+            // Обновляем список меток
+            updateMarkersList();
+
+            // Показываем список, если есть метки
+            if (markers.length > 0) {
+                markersList.style.display = 'block';
+            }
+        }
+
+        // Обновление списка меток
+        function updateMarkersList() {
+            markersContainer.innerHTML = '';
+
+
+            if (markers.length === 0) {
+                markersList.style.display = 'none';
+                return;
+            }
+
+            let inx = 0;
+            markers.forEach(marker => {
+                const markerElement = document.createElement('div');
+                markerElement.className = 'marker-item';
+                markerElement.innerHTML = `
+                    <div class="marker-info">
+                        <input type="hidden" name="Points[${inx}][lat]" value="${marker.lat.toFixed(6)}">
+                        <input type="hidden" name="Points[${inx}][lng]" value="${marker.lng.toFixed(6)}">
+                        <input type="hidden" name="Points[${inx}][is_new]" value="${marker.is_new?1:0}">
+                        <input type="hidden" name="Points[${inx}][name]" value="${marker.name}">
+                        <input type="hidden" name="Points[${inx}][id]" value="${marker.id}">
+
+                        <h4>${marker.name}</h4>
+                        <div class="marker-coords">
+                            Широта: ${marker.lat.toFixed(6)}, Долгота: ${marker.lng.toFixed(6)}
+                        </div>
+                    </div>
+                    <div class="marker-actions">
+                        <button class="icon-btn view-marker" data-id="${marker.id}" title="Показать на карте">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z" fill="#666"/>
+                            </svg>
+                        </button>
+                        <button class="icon-btn delete-marker" data-id="${marker.id}" title="Удалить">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="#666"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                inx++;
+                markersContainer.appendChild(markerElement);
+            });
+
+            // Добавляем обработчики для кнопок в списке
+            document.querySelectorAll('.view-marker').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const markerId = parseInt(this.dataset.id);
+                    const markerToShow = markers.find(m => m.id === markerId);
+                    if (markerToShow) {
+                        openModal();
+                        setTimeout(() => {
+                            map.setView([markerToShow.lat, markerToShow.lng], 15);
+                            if (marker) {
+                                map.removeLayer(marker);
+                            }
+                            marker = L.marker([markerToShow.lat, markerToShow.lng]).addTo(map);
+                            selectedCoords = {lat: markerToShow.lat, lng: markerToShow.lng};
+                            coordsDisplay.textContent =
+                                `Широта: ${markerToShow.lat.toFixed(6)}, Долгота: ${markerToShow.lng.toFixed(6)}`;
+                            markerNameInput.value = markerToShow.name;
+                        }, 100);
+                    }
+                });
+            });
+
+            document.querySelectorAll('.delete-marker').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const markerId = parseInt(this.dataset.id);
+                    if (confirm('Удалить эту метку?')) {
+                        markers = markers.filter(m => m.id !== markerId);
+                        localStorage.setItem('markers', JSON.stringify(markers));
+                        updateMarkersList();
+                    }
+                });
+            });
+        }
+
+        // Открытие модального окна
+        function openModal() {
+            modalOverlay.classList.add('active');
+            setTimeout(initMap, 10);
+        }
+
+        // Закрытие модального окна
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+            markerNameInput.value = '';
+            selectedCoords = null;
+            coordsDisplay.textContent = 'Кликните на карту для выбора координат';
+        }
+
+        // Обработчики событий
+        addMarkerBtn.addEventListener('click', openModal);
+
+        modalClose.addEventListener('click', closeModal);
+
+        cancelBtn.addEventListener('click', closeModal);
+
+        saveMarkerBtn.addEventListener('click', saveMarker);
+
+        // Обработчики для кнопок типа карты
+        mapTypeButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                changeMapType(this.dataset.type);
+            });
+        });
+
+        // Закрытие по клику вне модального окна
+        modalOverlay.addEventListener('click', function(e) {
+            if (e.target === modalOverlay) {
+                closeModal();
+            }
+        });
+
+        // Закрытие по Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
+                closeModal();
+            }
+        });
+
+        // Инициализация списка меток при загрузке
+        updateMarkersList();
+    </script>
+
+
 </body>
 </html>
