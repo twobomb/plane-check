@@ -950,13 +950,7 @@
         <h1><i class="fas fa-eye"></i> Просмотр плана</h1>
         <div class="header-actions">
 
-            <div class="header-profile">
-                <span class="profile-username"><?= getUser()["username"]?></span>
-                <a href="/logout.php">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Выход
-                </a>
-            </div>
+            <?PHP include  "includes/avatar_block.php"; ?>
             <a href="plan.php" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Назад к списку
             </a>

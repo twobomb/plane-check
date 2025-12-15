@@ -76,14 +76,7 @@ foreach ($plans as $plan){
             <h1><i class="fas fa-calendar-alt"></i> Управление планами</h1>
             <div class="header-actions">
 
-
-                <div class="header-profile">
-                    <span class="profile-username"><?= getUser()["username"]?></span>
-                    <a href="/logout.php">
-                        <i class="fas fa-sign-out-alt"></i>
-                        Выход
-                    </a>
-                </div>
+                <?PHP include  "includes/avatar_block.php"; ?>
                 <button class="btn btn-secondary" style="opacity: 0.3">
                     <i class="fas fa-download"></i> Экспорт
                 </button>

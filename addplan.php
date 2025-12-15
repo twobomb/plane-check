@@ -303,13 +303,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             <h1><i class="fas fa-calendar-plus"></i> <?= $plan == null?"Создание нового плана":"Редактирование плана ID #$plan[id]" ?></h1>
             <div class="header-actions">
 
-                <div class="header-profile">
-                    <span class="profile-username"><?= getUser()["username"]?></span>
-                    <a href="/logout.php">
-                        <i class="fas fa-sign-out-alt"></i>
-                        Выход
-                    </a>
-                </div>
+                <?PHP include  "includes/avatar_block.php"; ?>
                 <button class="btn btn-secondary" id="cancelBtn">
                     <i class="fas fa-times"></i> Отмена
                 </button>

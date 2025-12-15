@@ -15,6 +15,7 @@ if(isset($_GET["gen-link-for"])){
         'project_id' => $id_proj
     ], 1, 15); // Однократное использование, 15 минут жизни
 
+		//echo "http://plan-check.mchs.lnr/get-project.php?token=$token";die;
     header("location:".CORE::MAPSITE."?load-token=$token");die;
 }
 
@@ -532,13 +533,7 @@ foreach ($projects as $prj){
     <div class="header">
         <h1><i class="fas fa-map"></i> Проекты карт</h1>
         <div class="header-actions">
-            <div class="header-profile">
-                <span class="profile-username"><?= getUser()["username"]?></span>
-                <a href="/logout.php">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Выход
-                </a>
-            </div>
+           <?PHP include  "includes/avatar_block.php"; ?>
             <button class="btn btn-primary">
                 <i class="fas fa-plus"></i> Новый проект
             </button>

@@ -2,23 +2,28 @@
 
 require_once "vendor/autoload.php";
 require_once "Base64ImageProcessor.php";
+require_once "includes/config.php";
 
  class CORE {
      const MAPSITE = "http://map.mchs.lnr";
      public static $db ;
      public static $dateTypes = ["exact"=>"Конкретная дата","month"=>"Месяц","year"=>"Год","without"=>"Без даты"];
      public static $statuses = ["pending"=>"Ожидание","inprogress"=>"В работе","completed"=>"Выполнен","rejected"=>"Отклонен"];
+
+     const ROLE_USERCONTROL = "usercontrol";///доступ на страницу управления пользоваетлями
  }
- CORE::$db =new Medoo\Medoo([
-     'database_type' => 'mysql',
-     'database_name' => 'plan-check',
-     'server' => 'localhost',
-     'username' => 'root',
-     'charset' => 'utf8mb4',
-     'password' => '123456'
- ]);
+
+ CORE::$db =new Medoo\Medoo($dbconfigdata);
 
 
+ function canAccess($role,$user_id = null){
+     if($user_id == null)
+         $user_id = getUserId();
+     return CORE::$db->count("role",[
+             "user_id"=>$user_id,
+             "name"=>$role
+         ]) > 0;
+ }
  function getAllowedProjects($type,$uid = null){
      $projects = [];
     if($uid == null)
@@ -54,8 +59,9 @@ function getUser() {
 
     return [
         'id' => $_SESSION['user_id'],
-        'login' => $_SESSION['login'],
-        'username' => $_SESSION['username']
+        'login' =>CORE::$db->get("user","login",["id"=>$_SESSION['user_id']]),
+        'username' =>CORE::$db->get("user","username",["id"=>$_SESSION['user_id']]),
+        'is_blocked'=>CORE::$db->get("user","is_blocked",["id"=>$_SESSION['user_id']])
     ];
 }
 function getDeps(){

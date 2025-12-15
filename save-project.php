@@ -34,7 +34,12 @@
             if(!in_array($pid,$idsAccess))
                 throw new Exception("Вам запрещен доступ к этом проекту!");
             CORE::$db->update("project", [
-                "updated_at" => nowdate()
+                "updated_at" => nowdate(),
+                "center_lat" => $data["mapSettings"]["center"]["lat"],
+                "center_lng" => $data["mapSettings"]["center"]["lng"],
+                "zoom" => $data["mapSettings"]["zoom"],
+                "scheme" => $data["mapSettings"]["mode"],
+                "showLabels" => $data["mapSettings"]["showLabels"]
             ],["id"=>$pid]);
             if (!is_null(CORE::$db->error))
                 throw new Exception("Ошибка БД! " . CORE::$db->error);
@@ -96,6 +101,9 @@
     <link href="/css/fontawesome-free-6.7.2-web/css/all.min.css" rel="stylesheet">
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
     <style>
+        .project-card.active-project{
+            background: #fff8e4;
+        }
         * {
             margin: 0;
             padding: 0;
@@ -340,7 +348,18 @@
             color: #2c3e50;
             margin-bottom: 10px;
         }
-
+        .project-source{
+            display: none;
+        }
+        .active-project .project-source {
+            font-size: 14px;
+            color: #e19a00;
+            font-weight: bold;
+            color: #6c757d;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            display: block;
+        }
         .project-meta {
             font-size: 14px;
             color: #6c757d;
@@ -660,7 +679,7 @@
 
             <!-- Список существующих проектов -->
             <div id="existingProjects">
-                <h3 style="margin: 20px 0 15px 0;">Ваши проекты</h3>
+                <h3 style="margin: 20px 0 15px 0;">Выберите проект для пересохранения</h3>
                 <div class="projects-grid" id="projectsGrid">
                     <!-- Проекты будут загружены через JS -->
                 </div>
@@ -765,6 +784,15 @@
             if (xhr2.readyState === 4) {
                 if (xhr2.status === 200) {
                     appState.projects = JSON.parse(xhr2.responseText);
+                    if(appState.pendingProjectData.mapSettings.project_id != null)
+                        for(let i = 0 ; i< appState.projects.length; i++){
+                            if(appState.projects[i].id == appState.pendingProjectData.mapSettings.project_id){
+                                let b = appState.projects[i];
+                                appState.projects.splice(i,1);
+                                appState.projects.splice(0,0,b);
+                                break;
+                            }
+                        }
                     if(callback != null)
                         callback();
                 } else {
@@ -777,13 +805,6 @@
         };
         xhr2.send();
     }
-    // Мокап проектов пользователя
-    const mockProjects = [
-        { id: 1, name: "Мой первый проект", description: "Тестовый проект для демонстрации", created: "2023-09-01", updated: "2023-09-15", items: 5, isPublic: true },
-        { id: 2, name: "Рабочий проект", description: "Основной рабочий проект с важными данными", created: "2023-08-10", updated: "2023-09-28", items: 12, isPublic: false },
-        { id: 3, name: "Архивный проект", description: "Старый проект в архиве", created: "2023-05-15", updated: "2023-06-20", items: 8, isPublic: false },
-        { id: 4, name: "Совместный проект", description: "Проект для совместной работы с коллегами", created: "2023-09-10", updated: "2023-09-25", items: 15, isPublic: true }
-    ];
 
     // DOM элементы
     const elements = {
@@ -977,8 +998,11 @@
         }
 
         elements.projectsGrid.innerHTML = appState.projects.map(project => `
-                <div class="project-card ${appState.selectedProjectId === project.id ? 'selected' : ''}"
+                <div class="project-card ${project.id == appState.pendingProjectData.mapSettings.project_id?"active-project":""} ${appState.selectedProjectId === project.id ? 'selected' : ''}"
                      data-project-id="${project.id}">
+                    <div class="project-source">
+                        <span>Исходный проект</span>
+                    </div>
                     <div class="project-title">${project.name}</div>
                     <div class="project-meta">
                         <span>Создан: ${new Date(project.created_at).toLocaleDateString('ru-RU')}</span>

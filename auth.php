@@ -69,35 +69,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Поиск пользователя в базе
         $user = $database->get('user',
-            ['id', 'login', 'username', 'pwd_hash'],
+            ['id', 'login', 'username', 'pwd_hash','is_blocked'],
             ['login' => $login]
         );
 
         if ($user && password_verify($password, $user['pwd_hash'])) {
-            // Успешная авторизация
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['login'] = $user['login'];
-            $_SESSION['username'] = $user['username'];
+            if($user["is_blocked"]){
+                $error = 'Пользователь заблокирован! Обратитесь к администратору';
+            }else {
+                // Успешная авторизация
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['login'] = $user['login'];
+                $_SESSION['username'] = $user['username'];
 
-            // Обработка "Запомнить меня"
-            if ($remember) {
-                // Генерация уникального токена
-                $remember_token = bin2hex(random_bytes(32));
-                $expire = time() + 30 * 24 * 60 * 60; // 30 дней
+                // Обработка "Запомнить меня"
+                if ($remember) {
+                    // Генерация уникального токена
+                    $remember_token = bin2hex(random_bytes(32));
+                    $expire = time() + 30 * 24 * 60 * 60; // 30 дней
 
-                // Сохраняем токен в базе
-                $database->update('user',
-                    ['remember_token' => $remember_token],
-                    ['id' => $user['id']]
-                );
+                    // Сохраняем токен в базе
+                    $database->update('user',
+                        ['remember_token' => $remember_token],
+                        ['id' => $user['id']]
+                    );
 
-                // Устанавливаем куку
-                setcookie('remember_token', $remember_token, $expire, '/');
+                    // Устанавливаем куку
+                    setcookie('remember_token', $remember_token, $expire, '/');
+                }
+
+                // Перенаправление на страницу планов
+                header('Location: /plan.php');
+                exit;
             }
-
-            // Перенаправление на страницу планов
-            header('Location: /plan.php');
-            exit;
         } else {
             $error = 'Неверный логин или пароль';
         }

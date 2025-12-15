@@ -3,7 +3,12 @@
 session_start();
 
 // Если пользователь не авторизован, перенаправляем на страницу входа
-if (!isset($_SESSION['user_id'])) {
+
+$user = getUser();
+if (!$user) {
     header('Location: index.php');
+    exit;
+}else if($user["is_blocked"]){
+    header('Location: logout.php');
     exit;
 }

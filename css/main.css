@@ -27,3 +27,59 @@
 .header-profile a:hover {
     background: rgba(255, 255, 255, 0.25);
 }
+
+
+
+
+
+
+.user-info  a {
+    color: white;
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.user-info  a:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #3498db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    font-size: 16px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.user-login {
+
+    font-size: 13px;
+    color: #cccccc;
+}
