@@ -766,6 +766,7 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
                     <select id="roleFilter" class="filter-select">
                         <option value="all">Все роли</option>
                         <option value="<?= CORE::ROLE_USERCONTROL ?>">Доступ к управлению пользователями</option>
+                        <option value="<?= CORE::ROLE_DEPARTMENTCONTROL ?>">Доступ к управлению подразделениями</option>
                     </select>
                 </div>
 
@@ -947,6 +948,10 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
                             <input type="checkbox" id="roleAdmin" name="roles[]" value="<?= CORE::ROLE_USERCONTROL ?>">
                             <label for="roleAdmin">Доступ к управлению пользователями</label>
                         </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="roleDepartmentControl" name="roles[]" value="<?= CORE::ROLE_DEPARTMENTCONTROL ?>">
+                            <label for="roleDepartmentControl">Доступ к управлению подразделениями</label>
+                        </div>
                     </div>
                     <div class="form-help">Выберите одну или несколько ролей для пользователя</div>
                 </div>
@@ -1004,6 +1009,7 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
         changePassword: document.getElementById('changePassword'),
         modalIsBlocked: document.getElementById('modalIsBlocked'),
         roleAdmin: document.getElementById('roleAdmin'),
+        roleDepartmentControl: document.getElementById('roleDepartmentControl'),
         confirmMessage: document.getElementById('confirmMessage'),
         searchInput: document.getElementById('searchInput'),
         searchBtn: document.getElementById('searchBtn'),
@@ -1124,6 +1130,7 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
 
             // Сброс чекбоксов ролей
             elements.roleAdmin.checked = false;
+            elements.roleDepartmentControl.checked = false;
             elements.modalIsBlocked.checked = false;
         } else if (mode === 'edit' && userData) {
             elements.modalTitle.textContent = 'Редактировать пользователя';
@@ -1139,6 +1146,7 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
 
             // Установка чекбоксов ролей
             elements.roleAdmin.checked = userData.roles.includes('<?= CORE::ROLE_USERCONTROL ?>');
+            elements.roleDepartmentControl.checked = userData.roles.includes('<?= CORE::ROLE_DEPARTMENTCONTROL ?>');
             elements.modalIsBlocked.checked = userData.is_blocked;
         }
 
@@ -1221,8 +1229,9 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
                 if (roleFilter === '<?= CORE::ROLE_USERCONTROL ?>') {
                     visible = userRoles.includes('<?= CORE::ROLE_USERCONTROL ?>');
                 }
-                // else if (roleFilter === 'editor') {
-                //     visible = userRoles.includes('редактор');
+                else if (roleFilter === '<?= CORE::ROLE_DEPARTMENTCONTROL ?>') {
+                    visible = userRoles.includes('<?= CORE::ROLE_DEPARTMENTCONTROL ?>');
+                }
                 // } else if (roleFilter === 'viewer') {
                 //     visible = userRoles.includes('наблюдатель');
                 // }

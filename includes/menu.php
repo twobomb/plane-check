@@ -44,15 +44,23 @@
             </a>
         </div>
 
-        <?PHP if(canAccess(CORE::ROLE_USERCONTROL)): ?>
+
         <div class="menu-section">
             <h3>Управление</h3>
+            <?PHP if(canAccess(CORE::ROLE_USERCONTROL)): ?>
             <a href="/usercontrol.php" class="menu-item">
                 <i class="fas fa-users-cog"></i>
                 <span>Пользователи</span>
             </a>
+
+            <?PHP endif;  ?>
+            <?PHP if(canAccess(CORE::ROLE_DEPARTMENTCONTROL)): ?>
+            <a href="/departments.php" class="menu-item">
+                <i class="fas fa-sitemap"></i>
+                <span>Подразделения</span>
+            </a>
+            <?PHP endif;  ?>
         </div>
-        <?PHP endif;  ?>
 
     </div>
 

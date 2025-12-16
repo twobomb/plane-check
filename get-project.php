@@ -41,11 +41,52 @@ $prj_ids = [];
 foreach ($projects as $pj)
     array_push($prj_ids,$pj["id"]);
 
-if(!in_array($proejctid,$prj_ids))
-    echo "Проект недоступен!";
+$project = [];
+if($proejctid === "-1"){//Системный проект подразделений
+    $markers = [];
+    foreach (getDeps() as $k=>$m){
+        array_push($markers,[
+            "id"=>$m["id"],
+            "name"=>$m["name"],
+            "lat"=>doubleval($m["lat"]),
+            "lng"=>doubleval($m["lng"]),
+            "color"=>"#FF0000",
+            "showLabel"=>true
+        ]);
+    }
+    $result = [
+        "mapSettings"=>[
+            "project_id"=>-1,
+            "center"=>[
+                "lat"=>48.563665,
+                "lng"=> 39.311153,
+            ],
+            "zoom"=>12,
+            "mode"=>"scheme",
+            "showLabels"=>true,
+            "markerColor"=>"#e74c3c"
+        ],
+        "layers"=>[
+            [
+                "id"=>-1,
+                "name"=>"Подразделения",
+                "active"=>true,
+                "visible"=>true,
+                "markers"=>$markers
+            ]
+        ]
+    ];
+    responseJson($result);
+}else {
 
-$project = CORE::$db->get("project","*",["id"=>$proejctid]);
+    if (!in_array($proejctid, $prj_ids)) {
+        echo "Проект недоступен!";
+        die;
+    }
 
+    $project = CORE::$db->get("project", "*", ["id" => $proejctid]);
+
+}
 $result = [
     "mapSettings"=>[
         "project_id"=>$proejctid,

@@ -47,6 +47,21 @@ function validatePlan($p){
     if(!isset($p["Points"]))
         $p["Points"] = [];
 
+
+    foreach ($_FILES["file"]["error"] as $i=>$err) {
+        if ($err !== UPLOAD_ERR_OK) {
+            $errorsString = [
+                UPLOAD_ERR_INI_SIZE => 'Файл слишком большой',
+                UPLOAD_ERR_FORM_SIZE => 'Превышен MAX_FILE_SIZE',
+                UPLOAD_ERR_PARTIAL => 'Файл загружен частично',
+                UPLOAD_ERR_NO_FILE => 'Файл не был загружен',
+                UPLOAD_ERR_NO_TMP_DIR => 'Отсутствует временная директория',
+                UPLOAD_ERR_CANT_WRITE => 'Не удалось записать файл на диск',
+                UPLOAD_ERR_EXTENSION => 'PHP-расширение остановило загрузку',
+            ];
+            array_push($errors,$errorsString[$err]." [$_FILES[file][name][$i]");
+        }
+    }
     if(count($p["departments"]) > 0 && CORE::$db->count("department",["id"=>$p["departments"]]) != count($p["departments"]))
         array_push($errors,"Указаны неверные подразделения!");
     if (!empty($p["parent_id"]) && CORE::$db->count("plan",["id"=>$p["parent_id"]]) == 0 )
@@ -84,6 +99,11 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 unlink_if_exists($url);
             CORE::$db->delete("files", ["id" => $removeFileIds]);
         }
+
+
+        $remPids = CORE::$db->select("point_to_plan","point_id", ["plan_id"=>$delid]);
+        if(count($remPids) > 0)
+            CORE::$db->delete("point", ["id"=>$remPids]);
 
         CORE::$db->delete("plan", ["id"=>$delid]);
         if(!is_null(CORE::$db->error))
@@ -294,6 +314,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
 
             $file_ids  =  [];
+
             foreach ($_FILES["file"]["tmp_name"] as $i=>$tmpname) {
                 CORE::$db->insert("files",[
                     "url"=>saveUniFile("uploaded/planfiles/",$tmpname,$_FILES["file"]["name"][$i]),

@@ -1388,7 +1388,7 @@
             container.empty();
             geopointsData.forEach(point => {
                 const geopointItem = `
-                        <a href="geopoint.html?id=${point.id}" class="geopoint-item">
+                        <div data-id="${point.id}" class="geopoint-item">
                             <div class="geopoint-header">
                                 <div class="geopoint-name">
                                     <i class="fas fa-map-marker-alt" style="color: #dc3545;"></i>
@@ -1404,7 +1404,7 @@
                                     <i class="fas fa-map-pin"></i> ${point.address}
                                 </div>
                             </div>
-                        </a>
+                        </div>
                     `;
                 container.append(geopointItem);
             });

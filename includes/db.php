@@ -14,6 +14,7 @@ ini_set('display_errors', 1);
      public static $statuses = ["pending"=>"Ожидание","inprogress"=>"В работе","completed"=>"Выполнен","rejected"=>"Отклонен"];
 
      const ROLE_USERCONTROL = "usercontrol";///доступ на страницу управления пользоваетлями
+     const ROLE_DEPARTMENTCONTROL = "departmentcontrol";///доступ на страницу управления подразделениями
  }
 
  CORE::$db =new Medoo\Medoo($dbconfigdata);
@@ -100,10 +101,10 @@ function getGeopoint(){
 
 
 function responseJson($data){
-    ob_clean();
-    echo json_encode($data,JSON_UNESCAPED_UNICODE);
     header('Content-Type: application/json');
-    die;
+    ob_clean();
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    die();
 }
 
 // Форматирование размера файла
@@ -195,6 +196,10 @@ function getTimeAgo($date) {
         do {
             $filename = md5(microtime() . rand(0, 9999)) . "." . $ext;
         } while (file_exists($pathToSave . $filename));
+
+        if (!is_writable($pathToSave))
+            throw new Exception("Директория не доступна для записи");
+
         $filepath = $pathToSave . $filename;
         if(!move_uploaded_file($tmpFile, $filepath))
             throw new Exception("Ошибка перемещения файла '".$tmpFile ."' в '". $filepath."''");

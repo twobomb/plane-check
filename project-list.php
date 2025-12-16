@@ -6,6 +6,15 @@ include "includes/db.php";
 require_once "includes/auth_check.php";
 include "includes/OneTimeToken.php";
 
+if(isset($_GET["delete"])){
+    $id_proj = $_GET["delete"];
+    if ( CORE::$db->get("project","user_id",["id"=>$id_proj]) == getUserId() ||  CORE::$db->get("project","access",["id"=>$id_proj]) == "public"){
+        CORE::$db->delete("project",["id"=>$id_proj]);
+    }
+
+    header("location: project-list.php");
+    die;
+}
 if(isset($_GET["gen-link-for"])){
     $id_proj = $_GET["gen-link-for"];
 
@@ -27,6 +36,7 @@ foreach ($projects as $prj){
        "title"=>$prj["name"],
        "description"=>$prj["description"],
        "author"=>CORE::$db->get("user","username",["id"=>$prj["user_id"]]),
+       "can_delete"=> $prj["user_id"] == getUserId() || $prj["access"] == "public",
        "created"=>$prj["created_at"],
        "updated"=>$prj["updated_at"],
        "access"=>$prj["access"],
@@ -34,6 +44,17 @@ foreach ($projects as $prj){
     ]);
 }
 
+array_unshift($result,[
+   "id"=>-1,
+   "title"=>"Подразделения",
+   "description"=>"Карта подразделений. Системный не редактируемый проект, генерируется автоматически",
+   "author"=>"System",
+    "created"=>nowdate(),
+    "can_delete"=>false,
+    "updated"=>nowdate(),
+    "access"=>"System",
+    "layers"=>[]
+]);
 ?><!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -659,7 +680,7 @@ foreach ($projects as $prj){
                                 <div class="stat-label">Всего точек</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-value">${Math.round(totalPoints / totalLayers)}</div>
+                                <div class="stat-value">${ totalPoints > 0 ?Math.round(totalPoints / totalLayers):0}</div>
                                 <div class="stat-label">Среднее на слой</div>
                             </div>
                         </div>
@@ -677,9 +698,12 @@ foreach ($projects as $prj){
 
                     <div class="project-footer">
                         <div class="project-actions">
-                            <button class="icon-btn" title="Открыть карту">
+                            <button data-id="${project.id}" class="icon-btn" title="Открыть карту">
                                 <i class="fas fa-map-marked-alt"></i>
                             </button>
+                            ${project.can_delete?('<button  data-id="'+project.id+'" class="icon-btn" title="Удалить карту">\n<i class="fas fa-trash"></i>\n</button>'):'' }
+
+
                         </div>
                     </div>
                 </div>
@@ -690,27 +714,17 @@ foreach ($projects as $prj){
 
         // Назначаем обработчики для кнопок
         document.querySelectorAll('.icon-btn[title="Открыть карту"]').forEach((btn, index) => {
-            btn.addEventListener('click', () => {
-                window.location = "/project-list.php?gen-link-for="+ projects[index].id;
+            btn.addEventListener('click', (e) => {
+
+                window.location = "/project-list.php?gen-link-for="+ e.currentTarget.getAttribute("data-id");
             });
         });
-
-        document.querySelectorAll('.icon-btn[title="Редактировать"]').forEach((btn, index) => {
-            btn.addEventListener('click', () => {
-                alert(`Редактируем проект: "${projects[index].title}"`);
-            });
-        });
-
-        document.querySelectorAll('.icon-btn[title="Поделиться"]').forEach((btn, index) => {
-            btn.addEventListener('click', () => {
-                alert(`Поделиться проектом: "${projects[index].title}"`);
-            });
-        });
-
-        document.querySelectorAll('.icon-btn[title="Экспорт"]').forEach((btn, index) => {
-            btn.addEventListener('click', () => {
-                alert(`Экспорт проекта: "${projects[index].title}"`);
-            });
+        document.querySelectorAll('.icon-btn[title="Удалить карту"]').forEach((btn, index) => {
+                btn.addEventListener('click', (e) => {
+                    console.log(e.currentTarget.getAttribute("data-id"))
+                    if(confirm("Вы точно хотите удалить проект карты?"))
+                        window.location = "/project-list.php?delete="+ e.currentTarget.getAttribute("data-id");
+                });
         });
     }
 
@@ -803,6 +817,7 @@ foreach ($projects as $prj){
                 alert('Загрузка страницы проектов...');
             });
         });
+        searchProjects();
     });
 </script>
 </body>
