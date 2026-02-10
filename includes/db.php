@@ -10,6 +10,7 @@ ini_set('display_errors', 1);
  class CORE {
      const MAPSITE = "http://map.mchs.lnr";
      public static $db ;
+     public static $dbZabbix ;
      public static $dateTypes = ["exact"=>"Конкретная дата","month"=>"Месяц","year"=>"Год","without"=>"Без даты"];
      public static $statuses = ["pending"=>"Ожидание","inprogress"=>"В работе","completed"=>"Выполнен","rejected"=>"Отклонен"];
 
@@ -18,6 +19,7 @@ ini_set('display_errors', 1);
  }
 
  CORE::$db =new Medoo\Medoo($dbconfigdata);
+ CORE::$dbZabbix =new Medoo\Medoo($zabbixDbData);
 
 
  function canAccess($role,$user_id = null){

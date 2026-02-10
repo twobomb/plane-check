@@ -359,6 +359,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     <link href="/css/select2.min.css" rel="stylesheet">
     <link href="/css/addplan.css" rel="stylesheet">
     <link href="/css/main.css" rel="stylesheet">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
 
 </head>
 <body>

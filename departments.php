@@ -172,6 +172,7 @@ $noCoordsCount = countDepartmentsWithoutCoords();
     <link rel="stylesheet" href="/js/dist/leaflet.css" />
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
     <link href="/css/main.css" rel="stylesheet">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
 
     <link rel="stylesheet" href="/js/jquery-ui-1.13.2/jquery-ui.min.css">
     <style>

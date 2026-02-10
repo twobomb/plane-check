@@ -14,6 +14,7 @@ if(!canAccess(CORE::ROLE_USERCONTROL)){
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Управление пользователями - Система управления</title>
     <link rel="stylesheet" href="/css/fontawesome-free-6.7.2-web/css/all.min.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
     <style>
         * {

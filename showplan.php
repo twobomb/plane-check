@@ -117,6 +117,7 @@
 
     <!-- Подключаем библиотеки -->
     <link href="/css/fontawesome-free-6.7.2-web/css/all.min.css" rel="stylesheet">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
     <link href="/css/quill.snow.css" rel="stylesheet">
     <link href="/css/main.css" rel="stylesheet">

@@ -119,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Подключаем библиотеки -->
     <link href="/css/fontawesome-free-6.7.2-web/css/all.min.css" rel="stylesheet">
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
 
     <style>
         * {

@@ -11,10 +11,10 @@ $avatar_color = '#' . substr(md5($user['username']), 0, 6);
         <?php echo $first_letter; ?>
     </div>
     <div class="user-details">
-        <div class="user-name"><?php echo htmlspecialchars($user['username']); ?></div>
+        <a href="/profile.php" class="user-name"><?php echo htmlspecialchars($user['username']); ?></a>
         <div class="user-login">@<?php echo htmlspecialchars($user['login']); ?></div>
     </div>
-    <a href="/logout.php">
+    <a href="/logout.php" class="btn-logout">
         <i class="fas fa-sign-out-alt"></i>
         Выход
     </a>

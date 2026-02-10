@@ -44,9 +44,30 @@
             </a>
         </div>
 
+        <div class="menu-section">
+            <h3>Мониторинг</h3>
+
+            <a href="/map-monitor.php" class="menu-item">
+                <i class="fas fa-map"></i>
+                <span>Карта-мониторинг</span>
+                <!--<span class="menu-badge">47</span>-->
+            </a>
+            <a href="/zabbix-attach.php" class="menu-item">
+                <i class="fas fa-link"></i>
+                <span>Привязка узлов</span>
+                <!--<span class="menu-badge">47</span>-->
+            </a>
+
+        </div>
+
 
         <div class="menu-section">
             <h3>Управление</h3>
+
+            <a href="/profile.php" class="menu-item">
+                <i class="fas fa-user-circle"></i>
+                <span>Профиль</span>
+            </a>
             <?PHP if(canAccess(CORE::ROLE_USERCONTROL)): ?>
             <a href="/usercontrol.php" class="menu-item">
                 <i class="fas fa-users-cog"></i>

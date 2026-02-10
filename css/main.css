@@ -33,7 +33,14 @@
 
 
 
-.user-info  a {
+.user-info  a.user-name:hover {
+    color: #c0ffd7;
+
+}
+.user-info  a.user-name {
+    text-decoration: none;
+}
+.user-info  a.btn-logout {
     color: white;
     text-decoration: none;
     font-size: 13px;
@@ -46,7 +53,7 @@
     gap: 6px;
 }
 
-.user-info  a:hover {
+.user-info  a.btn-logout:hover {
     background: rgba(255, 255, 255, 0.25);
 }
 .user-avatar {
