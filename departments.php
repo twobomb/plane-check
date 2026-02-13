@@ -12,6 +12,24 @@ if(!canAccess(CORE::ROLE_DEPARTMENTCONTROL)){
 
 use Medoo\Medoo;
 
+
+function updateThroughSort($parent_id = null,$sortStart = 0){
+    $where = ['ORDER' => ['sort_id' => 'ASC']];
+    if ($parent_id === null) {
+        $where['parent_id'] = null;
+    } else {
+        $where['parent_id'] = $parent_id;
+    }
+    $departments = CORE::$db->select('department', '*', $where);
+    foreach ($departments as &$dept) {
+        CORE::$db->update('department',["through_sort"=>$sortStart++] ,["id"=>$dept["id"]]);
+        $sortStart = updateThroughSort($dept['id'],$sortStart);
+    }
+    return $sortStart;
+}
+
+updateThroughSort();
+
 // Обработка AJAX запросов
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $action = $_POST['action'] ?? '';
@@ -51,6 +69,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             try {
                 CORE::$db->insert('department', $data);
                 $response = ['success' => true, 'id' => CORE::$db->id()];
+                updateThroughSort();
             } catch (Exception $e) {
                 $response['message'] = 'Ошибка при добавлении: ' . $e->getMessage();
             }
@@ -69,6 +88,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($id > 0 && !empty($data['name']) && !empty($data['addr'])) {
                 CORE::$db->update('department', $data, ['id' => $id]);
                 $response = ['success' => true];
+                updateThroughSort();
             } else {
                 $response['message'] = 'Неверные данные';
             }
@@ -86,6 +106,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 CORE::$db->delete('department', ['id' => $id]);
                 $response = ['success' => true];
+                updateThroughSort();
             }
             break;
 
@@ -101,6 +122,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         'sort_id' => $order['sort_id']
                     ], ['id' => $order['id']]);
                 }
+                updateThroughSort();
 
                 CORE::$db->pdo->commit();
                 $response = ['success' => true];

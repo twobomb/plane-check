@@ -3,7 +3,6 @@
     require_once "includes/auth_check.php";
     include "includes/OneTimeToken.php";
 
-
     if($_SERVER["REQUEST_METHOD"] == "POST"){
         try {
             $status = $_POST["status"];
@@ -39,12 +38,21 @@
     $planData["author"] = CORE::$db->select("user","username",["id"=>$planData["user_id"]])[0];
     $planData["created"] =$planData["create_at"];
     $planData["parentPlan"] = null;
+
     if(!is_null($planData["parent_id"])){
         $par = CORE::$db->select("plan",["name","id"],["id"=>$planData["parent_id"]])[0];
         $planData["parentPlan"] = [
             "id"=>$par["id"],
             "title"=>$par["name"]
-            ]        ;
+            ];
+    }
+
+    $type = $planData["type"];
+    $lblName = "плана";
+    $lblName2 = "план";
+    if($type == "reise") {
+            $lblName = "выезда";
+            $lblName2 = "выезд";
     }
 
     $filesData = [];
@@ -113,7 +121,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Просмотр плана - Система управления</title>
+    <title>Просмотр <?= $lblName ?> - Система управления</title>
 
     <!-- Подключаем библиотеки -->
     <link href="/css/fontawesome-free-6.7.2-web/css/all.min.css" rel="stylesheet">
@@ -950,7 +958,7 @@
 <div class="container">
     <!-- Шапка страницы -->
     <div class="header">
-        <h1><?PHP include "includes/menu.php"?><i class="fas fa-eye"></i> Просмотр плана</h1>
+        <h1><?PHP include "includes/menu.php"?><i class="fas fa-eye"></i> Просмотр <?= $lblName ?></h1>
         <div class="header-actions">
 
             <?PHP include  "includes/avatar_block.php"; ?>
@@ -993,7 +1001,7 @@
         <div class="main-grid">
             <!-- Описание плана (широкая часть) -->
             <div class="section">
-                <h2><i class="fas fa-align-left"></i> Описание плана</h2>
+                <h2><i class="fas fa-align-left"></i> Описание <?= $lblName ?></h2>
                 <div class="plan-description" id="planDescription">
                     <p><strong>Цель:</strong> Успешный запуск нового продукта "SmartSolution Pro" на российском рынке с достижением доли рынка 15% в течение первого года.</p>
 
@@ -1023,7 +1031,7 @@
             <div class="right-panel">
                 <!-- Детали плана -->
                 <div class="section">
-                    <h2><i class="fas fa-info-circle"></i> Детали плана</h2>
+                    <h2><i class="fas fa-info-circle"></i> Детали <?= $lblName ?></h2>
                     <div class="plan-meta" style="flex-direction: column; gap: 15px;">
                         <div class="meta-item">
                             <i class="fas fa-calendar-day"></i>
@@ -1059,7 +1067,9 @@
         </div>
 
         <!-- Второй ряд: подпланы + подразделения -->
-        <div class="two-columns-grid">
+        <div class="two-columns-grid" <?= $type == "plan"?"":"style=\"grid-template-columns: none;\"" ?>>
+
+            <?PHP  if($type == "plan") : ?>
             <!-- Подпланы -->
             <div class="section">
                 <h2><i class="fas fa-project-diagram"></i> Подпланы</h2>
@@ -1072,6 +1082,7 @@
                 </div>
             </div>
 
+            <?PHP  endif; ?>
             <!-- История изменений -->
             <div class="section">
                 <h2><i class="fas fa-history"></i> История изменений</h2>
@@ -1114,7 +1125,7 @@
         <!-- Карта на всю ширину -->
         <div class="full-width-section">
             <div class="section">
-                <h2><i class="fas fa-map-marked-alt"></i> Карта плана</h2>
+                <h2><i class="fas fa-map-marked-alt"></i> Карта <?= $lblName ?></h2>
                 <div class="map-container">
                     <?PHP
                         $otp = new OneTimeToken();
@@ -1135,7 +1146,7 @@
 <div class="modal-overlay" id="statusModal">
     <div class="modal">
         <div class="modal-header">
-            <h3><i class="fas fa-flag"></i> Изменить статус плана</h3>
+            <h3><i class="fas fa-flag"></i> Изменить статус <?= $lblName ?></h3>
             <button class="modal-close" id="closeModal">&times;</button>
         </div>
         <div class="modal-body">
@@ -1169,25 +1180,25 @@
             {
                 id: "pending",
                 title: "Ожидание",
-                description: "План ожидает начала выполнения",
+                description: "<?= $lblName2 ?> ожидает начала выполнения",
                 icon: "fas fa-clock"
             },
             {
                 id: "inprogress",
                 title: "В работе",
-                description: "План находится в процессе выполнения",
+                description: "<?= $lblName2 ?> находится в процессе выполнения",
                 icon: "fas fa-sync-alt"
             },
             {
                 id: "completed",
                 title: "Выполнен",
-                description: "План успешно завершен",
+                description: "<?= $lblName2 ?> успешно завершен",
                 icon: "fas fa-check-circle"
             },
             {
                 id: "rejected",
                 title: "Отклонен",
-                description: "План отклонен или отменен",
+                description: "<?= $lblName2 ?> отклонен или отменен",
                 icon: "fas fa-times-circle"
             }
         ];
@@ -1540,8 +1551,8 @@
 
         // Обработчики кнопок
         $('#deleteBtn').on('click', function() {
-            if (confirm('Вы уверены, что хотите удалить этот план? Это действие нельзя отменить.')) {
-                alert('План удален! В реальном приложении здесь будет отправка запроса на удаление.');
+            if (confirm('Вы уверены, что хотите удалить этот <?= $lblName2 ?>? Это действие нельзя отменить.')) {
+                alert('<?= $lblName2 ?> удален! В реальном приложении здесь будет отправка запроса на удаление.');
                 // window.location.href = 'plans_list.html';
             }
         });

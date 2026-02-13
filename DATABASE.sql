@@ -24,6 +24,8 @@ CREATE TABLE `department`(
 	`state_fxo` TinyInt( 0 ) NOT NULL DEFAULT 2,
 	`state_radio` TinyInt( 0 ) NOT NULL DEFAULT 2,
 	`is_hidden` TinyInt( 0 ) NOT NULL DEFAULT 0,
+	`through_sort` Int( 0 ) NOT NULL DEFAULT 0,
+	`state_manual_ats` TinyInt( 0 ) NOT NULL DEFAULT 2,
 	PRIMARY KEY ( `id` ) )
 CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
@@ -36,6 +38,16 @@ AUTO_INCREMENT = 498;
 CREATE TABLE `department_to_plan`( 
 	`department_id` Int( 0 ) NOT NULL,
 	`plan_id` Int( 0 ) NOT NULL )
+CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_general_ci
+ENGINE = InnoDB;
+-- -------------------------------------------------------------
+
+
+-- CREATE TABLE "department_to_zabbix_node" --------------------
+CREATE TABLE `department_to_zabbix_node`( 
+	`department_id` Int( 0 ) NOT NULL,
+	`zabbix_hosts_hostid` Int( 0 ) NOT NULL )
 CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
 ENGINE = InnoDB;
@@ -80,7 +92,7 @@ CREATE TABLE `history`(
 CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
 ENGINE = InnoDB
-AUTO_INCREMENT = 124;
+AUTO_INCREMENT = 134;
 -- -------------------------------------------------------------
 
 
@@ -111,12 +123,13 @@ CREATE TABLE `plan`(
 	`date_value` Date NULL DEFAULT NULL,
 	`status` VarChar( 255 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
 	`parent_id` Int( 0 ) NULL DEFAULT NULL,
+	`type` VarChar( 255 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'plan',
 	PRIMARY KEY ( `id` ),
 	CONSTRAINT `unique_id` UNIQUE( `id` ) )
 CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
 ENGINE = InnoDB
-AUTO_INCREMENT = 57;
+AUTO_INCREMENT = 59;
 -- -------------------------------------------------------------
 
 
@@ -198,17 +211,7 @@ CREATE TABLE `user`(
 CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
 ENGINE = InnoDB
-AUTO_INCREMENT = 10;
--- -------------------------------------------------------------
-
-
--- CREATE TABLE "department_to_zabbix_node" --------------------
-CREATE TABLE `department_to_zabbix_node`( 
-	`department_id` Int( 0 ) NOT NULL,
-	`zabbix_hosts_hostid` Int( 0 ) NOT NULL )
-CHARACTER SET = utf8mb4
-COLLATE = utf8mb4_general_ci
-ENGINE = InnoDB;
+AUTO_INCREMENT = 12;
 -- -------------------------------------------------------------
 
 
@@ -219,6 +222,11 @@ CREATE INDEX `lnk_department_department_to_plan` USING BTREE ON `department_to_p
 
 -- CREATE INDEX "lnk_plan_department_to_plan" ------------------
 CREATE INDEX `lnk_plan_department_to_plan` USING BTREE ON `department_to_plan`( `plan_id` );
+-- -------------------------------------------------------------
+
+
+-- CREATE INDEX "lnk_department_department_to_zabbix_node" -----
+CREATE INDEX `lnk_department_department_to_zabbix_node` USING BTREE ON `department_to_zabbix_node`( `department_id` );
 -- -------------------------------------------------------------
 
 
@@ -277,14 +285,18 @@ CREATE INDEX `lnk_user_role` USING BTREE ON `role`( `user_id` );
 -- -------------------------------------------------------------
 
 
--- CREATE INDEX "lnk_department_department_to_zabbix_node" -----
-CREATE INDEX `lnk_department_department_to_zabbix_node` USING BTREE ON `department_to_zabbix_node`( `department_id` );
--- -------------------------------------------------------------
-
-
 -- CREATE LINK "lnk_department_department_to_plan" -------------
 ALTER TABLE `department_to_plan`
 	ADD CONSTRAINT `lnk_department_department_to_plan` FOREIGN KEY ( `department_id` )
+	REFERENCES `department`( `id` )
+	ON DELETE Cascade
+	ON UPDATE Cascade;
+-- -------------------------------------------------------------
+
+
+-- CREATE LINK "lnk_department_department_to_zabbix_node" ------
+ALTER TABLE `department_to_zabbix_node`
+	ADD CONSTRAINT `lnk_department_department_to_zabbix_node` FOREIGN KEY ( `department_id` )
 	REFERENCES `department`( `id` )
 	ON DELETE Cascade
 	ON UPDATE Cascade;
@@ -403,15 +415,6 @@ ALTER TABLE `project`
 ALTER TABLE `role`
 	ADD CONSTRAINT `lnk_user_role` FOREIGN KEY ( `user_id` )
 	REFERENCES `user`( `id` )
-	ON DELETE Cascade
-	ON UPDATE Cascade;
--- -------------------------------------------------------------
-
-
--- CREATE LINK "lnk_department_department_to_zabbix_node" ------
-ALTER TABLE `department_to_zabbix_node`
-	ADD CONSTRAINT `lnk_department_department_to_zabbix_node` FOREIGN KEY ( `department_id` )
-	REFERENCES `department`( `id` )
 	ON DELETE Cascade
 	ON UPDATE Cascade;
 -- -------------------------------------------------------------

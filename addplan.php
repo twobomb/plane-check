@@ -3,9 +3,14 @@ require_once "includes/db.php";
 
 require_once "includes/auth_check.php";
 
+
+
 function validatePlan($p){
     $errors = [];
     $p["name"] = trim($p["name"]);
+    if(empty($p["type"]) || !in_array($p["type"],["reise","plan"]))
+        array_push($errors,"Неизвестный тип!");
+
     if(empty($p["name"]))
         array_push($errors,"Введите название!");
     if(empty(trim(strip_tags($p["content"]))))
@@ -64,7 +69,7 @@ function validatePlan($p){
     }
     if(count($p["departments"]) > 0 && CORE::$db->count("department",["id"=>$p["departments"]]) != count($p["departments"]))
         array_push($errors,"Указаны неверные подразделения!");
-    if (!empty($p["parent_id"]) && CORE::$db->count("plan",["id"=>$p["parent_id"]]) == 0 )
+    if (!empty($p["parent_id"]) && CORE::$db->count("plan",["id"=>$p["parent_id"]]) == 0)
         array_push($errors,"Родительский план не найден!");
 
     return ["errors"=>$errors,"data"=>$p];
@@ -79,8 +84,19 @@ if($_SERVER["REQUEST_METHOD"] == "GET") {
             die;
         }
         $plan = $res[0];
+        $_GET["type"] = $plan["type"];
     }
 }
+
+$type = "plan";
+$lblName = "плана";
+$lblName2 = "план";
+if(isset($_GET["type"]) && $_GET["type"] == "reise") {
+    $type = "reise";
+    $lblName = "выезда";
+    $lblName2 = "выезд";
+}
+
 if($_SERVER["REQUEST_METHOD"] == "POST"){
 
     $res = ["result"=>"ok"];
@@ -135,6 +151,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             [
             "name"=>$data["name"],
             "content"=>$data["content"],
+            "type"=>$data["type"],
             "date_type"=>$data["date_type"],
             "status"=>$data["status"],
             "parent_id"=>empty($data["parent_id"])? null : $data["parent_id"],
@@ -274,6 +291,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 "name"=>$data["name"],
                 "content"=>$data["content"],
                 "date_type"=>$data["date_type"],
+                "type"=>$data["type"],
                 "status"=>$data["status"],
                 "user_id"=>getUserId(),
                 "parent_id"=>empty($data["parent_id"])? null : $data["parent_id"],
@@ -332,7 +350,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 if(!is_null(CORE::$db->error))
                     throw new Exception("Ошибка БД! ".CORE::$db->error);
             }
-            addHistory($pid,"add","План создан!");
+            addHistory($pid,"add","$lblName2 создан!");
 
         }catch (Exception $ex){
             $res["result"] = 'error';
@@ -349,7 +367,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Создание плана - Система управления</title>
+    <title>Создание <?=$lblName?> - Система управления</title>
     <link rel="stylesheet" href="/css/fontawesome-free-6.7.2-web/css/all.min.css">
     <link rel="stylesheet" href="/js/dist/leaflet.css" />
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
@@ -365,7 +383,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 <body>
     <div class="container">
         <div class="header">
-            <h1><?PHP include "includes/menu.php"?><i class="fas fa-calendar-plus"></i> <?= $plan == null?"Создание нового плана":"Редактирование плана ID #$plan[id]" ?></h1>
+            <h1><?PHP include "includes/menu.php"?><i class="fas fa-calendar-plus"></i> <?= $plan == null?"Создание нового $lblName":"Редактирование $lblName ID #$plan[id]" ?></h1>
             <div class="header-actions">
 
                 <?PHP include  "includes/avatar_block.php"; ?>
@@ -373,7 +391,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                     <i class="fas fa-times"></i> Отмена
                 </button>
                 <button class="btn btn-primary" id="savePlanBtn">
-                    <i class="fas fa-check"></i> Сохранить план
+                    <i class="fas fa-check"></i> Сохранить <?=$lblName2?>
                 </button>
             </div>
         </div>
@@ -384,13 +402,18 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                     <!-- Основная информация -->
                     <div class="form-section">
                         <h2><i class="fas fa-info-circle"></i> Основная информация</h2>
-                        
+
+
+                        <input type="hidden" id="planType" value="<?=$type?>">
+
                         <div class="form-group">
-                            <label for="planTitle" class="required">Название плана</label>
-                            <input type="text" id="planTitle" class="form-input" placeholder="Введите название плана" value="<?=$plan?$plan["name"]:""?>">
+                            <label for="planTitle" class="required">Название <?=$lblName?></label>
+                            <input type="text" id="planTitle" class="form-input" placeholder="Введите название <?=$lblName?>" value="<?=$plan?$plan["name"]:""?>">
                         </div>
 
-                        
+                        <?PHP
+                        if($type == "plan"):
+                        ?>
                         <div class="form-group">
                             <label for="dateType" class="required">Тип даты</label>
                             <div class="date-options">
@@ -412,6 +435,17 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                                 </label>
                             </div>
                         </div>
+                        <?PHP
+                        else:?>
+                            <input style="display: none" type="radio" name="dateType" value="exact" checked  >
+                            <div class="date-inputs" id="exactDateInput">
+                                <label for="exactDate">Дата выезда</label>
+                                <input type="date" id="exactDate" class="form-date" value="<?=($plan)?DateTime::createFromFormat('Y-m-d', $plan["date_value"])->format("Y-m-d"):((new DateTime())->format("Y-m-d"))  ?>">
+                            </div>
+                        <?PHP
+                        endif;
+                        ?>
+
                     </div>
                 </div>
 
@@ -419,7 +453,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
                     <!-- Статус плана -->
                     <div class="form-section">
-                        <h2><i class="fas fa-flag"></i> Статус плана</h2>
+                        <h2><i class="fas fa-flag"></i> Статус <?=$lblName?></h2>
 
                         <div class="status-options">
                             <div class="status-option status-pending <?=($plan && $plan["status"] === "pending" || !$plan)?"selected":""  ?>" data-status="pending">
@@ -437,7 +471,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                         </div>
                     </div>
 
-
+                    <?PHP if($type == "plan"): ?>
                     <div class="form-group">
                         <div class="date-inputs" id="exactDateInput">
                             <label for="exactDate">Дата выполнения</label>
@@ -454,13 +488,14 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                             <input type="number" id="yearDate" class="form-input" min="2025" max="2030" value="<?=($plan)?DateTime::createFromFormat('Y-m-d', $plan["date_value"])->format("Y"):((new DateTime())->format("Y"))  ?>">
                         </div>
                     </div>
+                    <?PHP endif; ?>
                 </div>
 
 
             </div>
 
             <div class="form-group">
-                <label for="planDescription" class="required">Описание плана</label>
+                <label for="planDescription" class="required">Описание <?= $lblName ?></label>
                 <div class="editor-container">
                     <div id="editor"><?=$plan?$plan["content"]:""?></div>
                 </div>
@@ -556,7 +591,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
                 <div class="right-column">
 
-
+                    <?PHP if($type == "plan"): ?>
                     <!-- Привязка к другим планам -->
                     <div class="form-section subplans-section">
                         <h2><i class="fas fa-project-diagram"></i> Связь с другими планами</h2>
@@ -598,7 +633,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                             </button>
                         </div>
                     </div>
-
+                    <?PHP endif; ?>
                     <!-- Прикрепление файлов -->
                     <div class="form-section">
                         <h2><i class="fas fa-paperclip"></i> Файлы</h2>
@@ -638,7 +673,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             <div class="form-actions">
                 <div>
                     <button class="btn btn-danger" id="deletePlanBtn">
-                        <i class="fas fa-trash"></i> Удалить план
+                        <i class="fas fa-trash"></i> Удалить <?=$lblName2?>
                     </button>
                 </div>
                 <div style="display: flex; gap: 15px;">
@@ -646,7 +681,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                         <i class="fas fa-times"></i> Отмена
                     </button>
                     <button class="btn btn-primary" id="savePlanBottomBtn">
-                        <i class="fas fa-check"></i> Сохранить план
+                        <i class="fas fa-check"></i> Сохранить <?=$lblName2?>
                     </button>
                 </div>
             </div>
@@ -726,7 +761,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                     ['clean']
                 ]
             },
-            placeholder: 'Введите описание плана...'
+            placeholder: 'Введите описание <?=$lblName?>...'
         });
 
         // Инициализация Select2 для подразделений
@@ -782,7 +817,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
         function showDateInput(type) {
             // Скрыть все поля ввода даты
             Object.values(dateInputs).forEach(input => {
-                input.classList.add('hidden');
+                if(input != null)
+                    input.classList.add('hidden');
             });
             
             // Показать нужное поле
@@ -917,9 +953,10 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
 
         // Добавление подплана
-        document.getElementById('addSubplanBtn').addEventListener('click', function() {
-            alert('Обязательно сделаем...');
-        });
+        if(document.getElementById('addSubplanBtn') != null)
+            document.getElementById('addSubplanBtn').addEventListener('click', function() {
+                alert('Обязательно сделаем...');
+            });
 
         // Обработчики кнопок сохранения
         function savePlan() {
@@ -927,12 +964,13 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             const planData = {
                 plan_id: <?=  !is_null($plan) ?$plan["id"]: "null" ?> ,
                 name: document.getElementById('planTitle').value,
+                type: document.getElementById('planType').value,
                 content: quill.root.innerHTML,
                 date_type: document.querySelector('input[name="dateType"]:checked').value,
                 date_value: getDateValue(),
                 status: document.querySelector('.status-option.selected').dataset.status,
                 departments: $('#departmentsSelect').val(),
-                parent_id: $('#parentPlanSelect').val()
+                parent_id: document.getElementById('planType').value == "reise"?"":$('#parentPlanSelect').val()
             };
 
             let formData = new FormData();
@@ -943,6 +981,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             formData.append("date_type",planData.date_type);
             formData.append("date_value",planData.date_value);
             formData.append("date_value",planData.date_value);
+            formData.append("type",planData.type);
             formData.append("status",planData.status);
             formData.append("parent_id",planData.parent_id);
             for(let inx in fileRemoveList)
@@ -1001,7 +1040,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
         // Обработчики кнопок отмены
         function cancelEditing() {
-            if (confirm('Вы уверены, что хотите отменить создание плана? Все несохраненные изменения будут потеряны.')) {
+            if (confirm('Вы уверены, что хотите отменить создание <?=$lblName?>? Все несохраненные изменения будут потеряны.')) {
                 // В реальном приложении здесь будет перенаправление на список планов
                 window.location.href = '/plan.php';
             }
@@ -1056,11 +1095,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             
             clearTimeout(window.quillChangeTimeout);
             window.quillChangeTimeout = setTimeout(function() {
-                addHistoryEntry('Изменено описание плана');
+                addHistoryEntry('Изменено описание <?=$lblName?>>');
             }, 1000);
         });
 
         function addHistoryEntry(text) {
+
             const now = new Date();
             const formattedDate = now.toLocaleDateString('ru-RU', { 
                 day: 'numeric', 
@@ -1084,7 +1124,9 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             `;
             
             const historyList = document.getElementById('historyList');
-            historyList.insertBefore(historyItem, historyList.firstChild);
+
+            if(historyList)
+                historyList.insertBefore(historyItem, historyList.firstChild);
         }
     </script>
 

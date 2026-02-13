@@ -6,10 +6,40 @@ include "includes/db.php";
 require_once "includes/auth_check.php";
 
 
-$plans = CORE::$db->query("SELECT id,name,(SELECT username FROM user WHERE plan.user_id=user.id) as username, SUBSTRING(TRIM(content),1,500) as description, (SELECT COUNT(*) FROM department_to_plan WHERE department_to_plan.plan_id = plan.id ) as departments, (SELECT COUNT(*) FROM point_to_plan WHERE point_to_plan.plan_id = plan.id ) as geoPoints, (SELECT COUNT(*) FROM file_to_plan WHERE file_to_plan.plan_id = plan.id ) as files, (SELECT COUNT(*) FROM plan as p1 WHERE p1.parent_id = plan.id ) as subplans, date_type,date_value,status,create_at FROM plan")->fetchAll();
+
+$departments = CORE::$db->select("department", [
+    "id",
+    "name"
+], [
+    "ORDER" => ["through_sort" => "ASC"]
+]);
+$allDepartments = [];
+foreach ($departments as $dept) {
+    $allDepartments[] = [
+        "id" => $dept["id"],
+        "name" => $dept["name"]
+    ];
+}
+
+$plans = CORE::$db->query("SELECT id,name,(SELECT username FROM user WHERE plan.user_id=user.id) as username, SUBSTRING(TRIM(content),1,500) as description, (SELECT COUNT(*) FROM department_to_plan WHERE department_to_plan.plan_id = plan.id ) as departments, (SELECT COUNT(*) FROM point_to_plan WHERE point_to_plan.plan_id = plan.id ) as geoPoints, (SELECT COUNT(*) FROM file_to_plan WHERE file_to_plan.plan_id = plan.id ) as files, (SELECT COUNT(*) FROM plan as p1 WHERE p1.parent_id = plan.id ) as subplans, date_type,date_value,status,create_at,type FROM plan")->fetchAll();
+$planIds = array_column($plans, 'id');
+$deptLinks = [];
+if (!empty($planIds)) {
+    $links = CORE::$db->select("department_to_plan", [
+        "plan_id",
+        "department_id"
+    ], [
+        "plan_id" => $planIds
+    ]);
+    foreach ($links as $link) {
+        $deptLinks[$link["plan_id"]][] = $link["department_id"];
+    }
+}
+
+
 for($i = 0 ; $i < count($plans);$i++){
     $plans[$i]["description"] = strip_tags($plans[$i]["description"]);
-    $plans[$i]["description"] = substr($plans[$i]["description"],0,250);
+    $plans[$i]["description"] = mb_substr($plans[$i]["description"],0,250);
     if(strlen($plans[$i]["description"]) == 250)
         $plans[$i]["description"].="...";
 
@@ -43,6 +73,7 @@ foreach ($plans as $plan){
     array_push($result,[
         "id"=>$plan["id"],
         "title"=>$plan["name"],
+        "type"=>$plan["type"],
         "description"=>$plan["description"],
         "dateType"=>$plan["date_type"],
         "dateValue"=>$plan["date_value"],
@@ -54,7 +85,8 @@ foreach ($plans as $plan){
         "geoPoints"=>$plan["geoPoints"],
         "subplans"=>$plan["subplans"],
         "deadlineStyle"=>$plan["deadlineStyle"],
-        "created"=>$plan["create_at"]
+        "created"=>$plan["create_at"],
+        "departmentIds" => isset($deptLinks[$plan["id"]]) ? $deptLinks[$plan["id"]] : []
     ]);
 }
 ?><!DOCTYPE html>
@@ -63,6 +95,7 @@ foreach ($plans as $plan){
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Планы - Система управления</title>
+    <link href="/css/select2.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/fontawesome-free-6.7.2-web/css/all.min.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
@@ -72,7 +105,7 @@ foreach ($plans as $plan){
 <body>
     <div class="container">
         <div class="header">
-            <h1><?PHP include "includes/menu.php"?><i class="fas fa-calendar-alt"></i> Управление планами</h1>
+            <h1><?PHP include "includes/menu.php"?><i class="fas fa-calendar-alt"></i> Планы и выезда</h1>
             <div class="header-actions">
 
                 <?PHP include  "includes/avatar_block.php"; ?>
@@ -82,6 +115,9 @@ foreach ($plans as $plan){
                 <button class="btn btn-primary" id="newPlanBtn">
                     <i class="fas fa-plus"></i> Новый план
                 </button>
+                <button class="btn btn-primary" id="newReiseBtn">
+                    <i class="fas fa-plus"></i> Новый выезд
+                </button>
             </div>
         </div>
         
@@ -90,24 +126,25 @@ foreach ($plans as $plan){
                 <h2><i class="fas fa-filter"></i> Фильтры и сортировка</h2>
                 
                 <div class="filters-grid">
-            <!--        <div class="filter-group">
-                        <label for="departmentFilter"><i class="fas fa-sitemap"></i> Подразделение</label>
-                        <select id="departmentFilter" class="filter-select" multiple>
-                            <option value="all">Все подразделения</option>
-                            <option value="Маркетинг">Маркетинг</option>
-                            <option value="Продажи">Продажи</option>
-                            <option value="ИТ">ИТ</option>
-                            <option value="HR">HR</option>
-                            <option value="Администрация">Администрация</option>
-                            <option value="Аналитика">Аналитика</option>
-                            <option value="Операции">Операции</option>
-                            <option value="Руководство">Руководство</option>
-                            <option value="Стратегия">Стратегия</option>
-                            <option value="Производство">Производство</option>
-                            <option value="Качество">Качество</option>
+                    <!-- Фильтр по типу -->
+                    <div class="filter-group">
+                        <label><i class="fas fa-tag"></i> Тип</label>
+                        <div class="type-filter">
+                            <button class="type-btn active" data-type="all">Все</button>
+                            <button class="type-btn" data-type="plan">Только планы</button>
+                            <button class="type-btn" data-type="reise">Только выезда</button>
+                        </div>
+                    </div>
+
+                    <!-- Фильтр по подразделениям -->
+                    <div class="filter-group">
+                        <label><i class="fas fa-building"></i> Подразделения</label>
+                        <select id="departmentFilter" class="filter-input select2" multiple="multiple" style="width: 100%;">
+                            <!-- options будут добавлены через JavaScript или PHP -->
                         </select>
-                    </div>-->
-                    
+                    </div>
+                </div>
+                <div class="filters-grid">
                     <div class="filter-group">
                         <label><i class="far fa-calendar-alt"></i> Период создания</label>
                         <div class="date-range">
@@ -174,7 +211,8 @@ foreach ($plans as $plan){
             </div>-->
         </div>
     </div>
-
+    <script src="/js/jquery-3.6.0.min.js"></script>
+    <script src="/js/select2.min.js"></script>
     <script src="/js/main.js"></script>
     <script>
         // Моковые данные для планов
@@ -187,6 +225,7 @@ foreach ($plans as $plan){
         let filterState = {
             departments: ['all'],
             dateFrom: null,
+            type:'all',
             dateTo: null,
             status: 'all',
             sortBy: 'created-desc'
@@ -274,14 +313,18 @@ foreach ($plans as $plan){
         // Функция для фильтрации планов
         function filterPlans() {
             let filteredPlans = [...plansData];
-            
+            // Фильтрация по типу
+            if (filterState.type !== 'all') {
+                filteredPlans = filteredPlans.filter(plan => plan.type === filterState.type);
+            }
+
             // Фильтрация по подразделениям
             if (!filterState.departments.includes('all') && filterState.departments.length > 0) {
                 filteredPlans = filteredPlans.filter(plan => {
-                    return plan.departments.some(dept => filterState.departments.includes(dept));
+                    return plan.departmentIds.some(dept => filterState.departments.includes(dept));
                 });
             }
-            
+
             // Фильтрация по периоду создания
             if (filterState.dateFrom) {
                 const fromDate = new Date(filterState.dateFrom);
@@ -380,7 +423,7 @@ foreach ($plans as $plan){
                 </div>
             `).join('');
             // Обновляем счетчик
-            document.querySelector('.plans-count').textContent = `Найдено: ${plans.length} планов`;
+            document.querySelector('.plans-count').textContent = `Найдено: ${plans.length} объектов`;
             
             // Добавляем обработчики событий для кнопок действий
             document.querySelectorAll('.plan-actions .icon-btn').forEach(btn => {
@@ -398,6 +441,18 @@ foreach ($plans as $plan){
 
         // Функция для обновления UI фильтров
         function updateFilterUI() {
+
+            // Тип
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.type === filterState.type) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Подразделения (Select2)
+            $('#departmentFilter').val(filterState.departments).trigger('change');
+
             // Статусы
             document.querySelectorAll('.status-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -427,6 +482,40 @@ foreach ($plans as $plan){
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
+
+            // Обработчики для кнопок типа
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    filterState.type = this.dataset.type;
+                    updateFilterUI();
+                    renderPlans(filterPlans());
+                });
+            });
+
+// Обработчик для Select2 (изменение выбора подразделений)
+            $('#departmentFilter').on('change', function() {
+                filterState.departments = $(this).val() || []; // если ничего не выбрано - пустой массив
+                // Не применяем фильтр сразу, ждём кнопку "Применить" (согласно логике)
+            });
+
+            // Заполняем select подразделениями из PHP
+            const departmentSelect = document.getElementById('departmentFilter');
+            const allDepartments = <?= json_encode($allDepartments, JSON_UNESCAPED_UNICODE) ?>;
+
+            allDepartments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.id;
+                option.textContent = dept.name;
+                departmentSelect.appendChild(option);
+            });
+
+// Инициализация Select2
+            $('#departmentFilter').select2({
+                placeholder: 'Выберите подразделения',
+                allowClear: true,
+                language: 'ru'
+            });
+
             // Первоначальная отрисовка
             const initialPlans = filterPlans();
             renderPlans(initialPlans);
@@ -471,17 +560,17 @@ foreach ($plans as $plan){
             document.getElementById('applyFiltersBtn').addEventListener('click', function() {
                 renderPlans(filterPlans());
             });
-            
+
             // Обработчик для кнопки "Сбросить всё"
             document.getElementById('resetFiltersBtn').addEventListener('click', function() {
                 filterState = {
-                    departments: ['all'],
+                    departments: [],      // было ['all'], теперь пустой массив
                     dateFrom: null,
                     dateTo: null,
                     status: 'all',
+                    type: 'all',
                     sortBy: 'created-desc'
                 };
-                
                 updateFilterUI();
                 renderPlans(filterPlans());
             });
@@ -489,6 +578,9 @@ foreach ($plans as $plan){
             // Обработчик для кнопки "Новый план"
             document.getElementById('newPlanBtn').addEventListener('click', function() {
                 window.location.href = "/addplan.php";
+            });
+            document.getElementById('newReiseBtn').addEventListener('click', function() {
+                window.location.href = "/addplan.php?type=reise";
             });
             
             // Инициализация UI фильтров

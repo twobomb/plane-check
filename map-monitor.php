@@ -63,6 +63,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["type"]) && $_POST["type
     try {
         $divisionId = (int)$_POST['divisionId'];
         $system = $_POST['system'];
+        if($system == "ats")
+            $system = "manual_ats";
         $status = (int)$_POST['status'];
 
         // Безопасное имя поля
@@ -319,7 +321,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["type"]) && $_POST["type
         }
 
         .panel-collapsed {
-            transform: translateX(-350px);
+            transform: translateX(-400px);
         }
 
         .panel-header {
@@ -843,6 +845,25 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["type"]) && $_POST["type
             overflow: hidden;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
+        #map.division-circle-s1 .division-circle{
+            width: 35px;
+            height: 35px;
+        }
+        #map.division-circle-s2 .division-circle{
+            width: 30px;
+            height: 30px;
+            border: 2px solid #2c3e50;
+        }
+        #map.division-circle-s3 .division-circle{
+            width: 25px;
+            height: 25px;
+            border: 2px solid #2c3e50;
+        }
+        #map.division-circle-s4 .division-circle{
+            width: 20px;
+            height: 20px;
+            border: 1px solid #2c3e50;
+        }
 
         .quarter {
             position: absolute;
@@ -876,7 +897,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["type"]) && $_POST["type
             z-index: 1;
             transition: opacity 0.3s;
         }
-
+        #map.division-circle-s4 .division-label ,
+        #map.division-circle-s3 .division-label ,
+        #map.division-circle-s2 .division-label {
+            padding: 0px 2px;
+            font-size: 10px;
+        }
         .labels-hidden .division-label {
             opacity: 0;
             pointer-events: none;
@@ -1069,7 +1095,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["type"]) && $_POST["type
     <div class="panel-header">
         <div class="panel-header-content">
             <button class="back-to-site" id="backToSite">
-                <i class="fas fa-arrow-left"></i> Назад
+                <i class="fas fa-arrow-left"></i> Вернуться
             </button>
             <div class="panel-title">
                 <i class="fas fa-fire-extinguisher"></i> Подразделения
@@ -1362,8 +1388,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["type"]) && $_POST["type
     };
 <?PHP
 
-$allDepartments = CORE::$db->select("department",["name","id","lat","lng","addr","state_fxo","state_radio",'is_hidden'], [
-    'ORDER' => ['sort_id' => 'ASC']
+$allDepartments = CORE::$db->select("department",["name","id","lat","lng","addr","state_fxo","state_radio",'is_hidden','state_manual_ats'], [
+    'ORDER' => ['through_sort' => 'ASC']
 ]);
 $sortedDeps = [];
 $i = 0;
@@ -1416,22 +1442,30 @@ foreach ($allDepartments as $dep){
    $dep["id"] = intval($dep["id"]);
    $dep["lat"] = floatval($dep["lat"]);
    $dep["lng"] = floatval($dep["lng"]);
-    $dep["is_hidden"] = intval($dep["is_hidden"]);
+   $dep["is_hidden"] = intval($dep["is_hidden"]);
    $coordinatorState = 2;
    $AtsState = 2;
+
+   $AtsStateIsManual = true;///Какой статус будет браться, автоматом из заббикса или вручную, если нет привязки к узлу с группой АТС то будет ручной
 
 
     foreach (CORE::$db->select("department_to_zabbix_node","zabbix_hosts_hostid",["department_id"=>$dep["id"]]) as $hostid){
         if(isset($allNodes[$hostid]) && $allNodes[$hostid] == "Coordinators")
             $coordinatorState =  in_array($hostid,$unavailableHosts)?0:1;
 
-        if(isset($allNodes[$hostid]) && $allNodes[$hostid] == "ATS")
-            $AtsState = in_array($hostid,$unavailableHosts)?0:1;
+        if(isset($allNodes[$hostid]) && $allNodes[$hostid] == "ATS") {
+            $AtsState = in_array($hostid, $unavailableHosts) ? 0 : 1;
+            $AtsStateIsManual = false;
+        }
+    }
+
+    if($AtsStateIsManual){
+        $AtsState = intval($dep["state_manual_ats"]);
     }
 
     $dep["plans"] =  CORE::$db->query("select id,name,date_type,date_value,status from plan left JOIN department_to_plan as dtp ON plan.id = dtp.plan_id WHERE dtp.department_id  = $dep[id] ORDER BY create_at DESC")->fetchAll();
 
-
+   $dep["ats_state_is_manual"] = $AtsStateIsManual;
    $dep["status"] = [
        "coordinator"=>$coordinatorState,
        "ats"=>$AtsState,
@@ -1509,6 +1543,24 @@ foreach ($allDepartments as $dep){
             zoomDelta: 0.5
         }).setView(center, zoom);
 
+        currentMap.on('zoomend', function(e) {
+            const currentZoom = currentMap.getZoom();
+            console.log('Zoom изменился на:', currentZoom);
+            let map  = document.querySelector("#map");
+            map.classList.remove("division-circle-s1");
+            map.classList.remove("division-circle-s2");
+            map.classList.remove("division-circle-s3");
+            map.classList.remove("division-circle-s4");
+            if(currentZoom <= 11 && currentZoom > 10 )
+                map.classList.add("division-circle-s1");
+            else if(currentZoom <= 10  && currentZoom > 9 )
+                map.classList.add("division-circle-s2");
+            else if(currentZoom <= 9 && currentZoom > 8)
+                map.classList.add("division-circle-s3");
+            else if(currentZoom <= 8 )
+                map.classList.add("division-circle-s4");
+
+        });
         // Добавляем основной слой
         const baseLayer = L.tileLayer(layerConfig.url, {
             attribution: false
@@ -1518,7 +1570,6 @@ foreach ($allDepartments as $dep){
         if (layerType === 'hybrid') {
             const overlayLayer = L.tileLayer(layerConfig.overlay, {
                 attribution: false,
-                opacity: 0.5
             }).addTo(currentMap);
             layerConfig.layers = [baseLayer, overlayLayer];
         } else {
@@ -1938,7 +1989,7 @@ foreach ($allDepartments as $dep){
         <div class="status-display">
             ${Object.entries(status).map(([system, value]) => {
             // Для систем radio и fxo добавляем кнопки управления
-            if (system === 'radio' || system === 'fxo') {
+            if (system === 'radio' || system === 'fxo' || (system == 'ats' && division.ats_state_is_manual)) {
                 return `
                         <div class="status-item">
                             <div class="status-circle" style="background-color: ${getStatusColor(value)};">
@@ -2252,7 +2303,8 @@ foreach ($allDepartments as $dep){
 
     // Назад на сайт
     function goBackToSite() {
-        window.history.back();
+///        window.history.back();
+        window.location.href = '/';
         // Или можно использовать: window.location.href = '/';
     }
 

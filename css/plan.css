@@ -563,3 +563,28 @@ body {
         justify-content: center;
     }
 }
+.type-filter {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.type-btn {
+    padding: 8px 16px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: white;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+
+}
+.type-btn.active {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+.select2-search__field{
+    font-size: 13px !important;
+}
