@@ -34,6 +34,37 @@ AUTO_INCREMENT = 498;
 -- -------------------------------------------------------------
 
 
+-- CREATE TABLE "department_fields" ----------------------------
+CREATE TABLE `department_fields`( 
+	`id` Int( 0 ) AUTO_INCREMENT NOT NULL,
+	`department_id` Int( 0 ) NOT NULL,
+	`tab_key` VarChar( 50 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+	`field_name` VarChar( 50 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+	`field_value` Text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
+	`created_at` Timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+	`updated_at` Timestamp NULL ON UPDATE CURRENT_TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY ( `id` ),
+	CONSTRAINT `unique_dept_field` UNIQUE( `department_id`, `tab_key`, `field_name` ) )
+CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_general_ci
+ENGINE = InnoDB;
+-- -------------------------------------------------------------
+
+
+-- CREATE TABLE "department_notes" -----------------------------
+CREATE TABLE `department_notes`( 
+	`id` Int( 0 ) AUTO_INCREMENT NOT NULL,
+	`department_id` Int( 0 ) NOT NULL,
+	`note` Text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+	`created_by` VarChar( 100 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT 'Вася Пупкин',
+	`created_at` Timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY ( `id` ) )
+CHARACTER SET = utf8mb4
+COLLATE = utf8mb4_general_ci
+ENGINE = InnoDB;
+-- -------------------------------------------------------------
+
+
 -- CREATE TABLE "department_to_plan" ---------------------------
 CREATE TABLE `department_to_plan`( 
 	`department_id` Int( 0 ) NOT NULL,
@@ -92,7 +123,7 @@ CREATE TABLE `history`(
 CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
 ENGINE = InnoDB
-AUTO_INCREMENT = 134;
+AUTO_INCREMENT = 136;
 -- -------------------------------------------------------------
 
 
@@ -129,7 +160,7 @@ CREATE TABLE `plan`(
 CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
 ENGINE = InnoDB
-AUTO_INCREMENT = 59;
+AUTO_INCREMENT = 60;
 -- -------------------------------------------------------------
 
 
@@ -149,7 +180,7 @@ CREATE TABLE `point`(
 CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
 ENGINE = InnoDB
-AUTO_INCREMENT = 247;
+AUTO_INCREMENT = 248;
 -- -------------------------------------------------------------
 
 
@@ -212,6 +243,16 @@ CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_general_ci
 ENGINE = InnoDB
 AUTO_INCREMENT = 12;
+-- -------------------------------------------------------------
+
+
+-- CREATE INDEX "department_id" --------------------------------
+CREATE INDEX `department_id` USING BTREE ON `department_fields`( `department_id` );
+-- -------------------------------------------------------------
+
+
+-- CREATE INDEX "department_id" --------------------------------
+CREATE INDEX `department_id` USING BTREE ON `department_notes`( `department_id` );
 -- -------------------------------------------------------------
 
 
