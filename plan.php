@@ -99,7 +99,7 @@ foreach ($plans as $plan){
     <link rel="stylesheet" href="/css/fontawesome-free-6.7.2-web/css/all.min.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link href="/css/Inter-4.1/web/inter.css" rel="stylesheet">
-    <link rel="stylesheet" href="/css/plan.css" >
+    <link rel="stylesheet" href="/css/plan.css?v=3" >
     <link rel="stylesheet" href="/css/main.css" >
 </head>
 <body>
@@ -218,8 +218,6 @@ foreach ($plans as $plan){
         // Моковые данные для планов
         const plansData = <?= json_encode($result,JSON_UNESCAPED_UNICODE)?>;
 
-        // Все доступные подразделения
-        const allDepartments = ["Маркетинг", "Продажи", "ИТ", "HR", "Администрация", "Аналитика", "Операции", "Руководство", "Стратегия", "Производство", "Качество"];
 
         // Состояние фильтров
         let filterState = {
@@ -367,6 +365,10 @@ foreach ($plans as $plan){
                 <div class="plan-card">
                     <div class="plan-header">
                         <div class="plan-title">${plan.title}</div>
+                        <div class="plan-type-badge ${plan.type === 'reise' ? 'type-reise' : 'type-plan'}">
+                            <i class="fas ${plan.type === 'reise' ? 'fa-car' : 'fa-calendar-check'}"></i>
+                            ${plan.type === 'reise' ? 'Выезд' : 'План'}
+                        </div>
                         <div class="plan-meta">
                             <div class="plan-date ${plan.deadlineStyle}">
                                 <i class="far ${plan.deadlineStyle == "dealine-red"?'fa-calendar-times':'fa-calendar'}"></i>

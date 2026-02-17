@@ -563,6 +563,25 @@ body {
         justify-content: center;
     }
 }
+.plan-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #e9ecef;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.plan-type-badge.type-reise {
+    background: #cce5ff;
+    color: #004085;
+}
+.plan-type-badge.type-plan {
+    background: #d4edda;
+    color: #155724;
+}
 .type-filter {
     display: flex;
     gap: 8px;

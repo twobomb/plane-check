@@ -115,6 +115,13 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["type"]) && $_POST["type
             padding: 0;
             box-sizing: border-box;
         }
+
+        #addInfo{
+            width: calc(100% + 44px);
+            margin: 0 -22px;
+            margin-top: 20px;
+            height: 600px;
+        }
         /* Стиль для скрытого подразделения в списке */
         .division-item.division-hidden {
             background: rgba(255, 255, 255, 0.05);
@@ -956,7 +963,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["type"]) && $_POST["type
 
         .modal {
             width: 90%;
-            max-width: 800px;
+            max-width: 1200px;
             max-height: 90%;
             background: white;
             display: flex;
@@ -1982,6 +1989,8 @@ foreach ($allDepartments as $dep){
         <p><strong>Адрес:</strong> ${division.address || 'Не указан'}</p>
         <p><strong>Координаты:</strong> ${division.lat.toFixed(6)}, ${division.lng.toFixed(6)}</p>
   <p><strong>Статус:</strong> ${division.is_hidden == 1 ? '<span style="color:#ff6b6b">Скрыто</span>' : '<span style="color:#2ecc71">Видимо</span>'}</p>
+
+        <iframe id="addInfo" src="/addition-info.php?show_department=${division.id}" frameborder="0"></iframe>
     </div>
 
     <div class="modal-section">
@@ -2075,6 +2084,7 @@ foreach ($allDepartments as $dep){
 `;
 
         modalOverlay.classList.add('active');
+            document.querySelector(".modal-content").scrollTop = 0;
     }
 
     // Получение цвета текста для статуса

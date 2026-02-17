@@ -52,6 +52,11 @@
                 <span>Карта-мониторинг</span>
                 <!--<span class="menu-badge">47</span>-->
             </a>
+            <a href="/addition-info.php" class="menu-item">
+                <i class="fas fa-info-circle"></i>
+                <span>Доп. информация подразделений</span>
+                <!--<span class="menu-badge">47</span>-->
+            </a>
             <a href="/zabbix-attach.php" class="menu-item">
                 <i class="fas fa-link"></i>
                 <span>Привязка узлов</span>
