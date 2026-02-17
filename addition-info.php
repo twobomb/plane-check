@@ -207,7 +207,14 @@ if ($show_dept_id) {
     <link href="/css/main.css" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
+        .custom-clear{
+            float: right;
+            height: 38px;
+            background: no-repeat;
+            border: none;
+            color: red;
+            cursor: pointer;
+}
         .notification-container {
             position: fixed;
             top: 20px;
@@ -1073,13 +1080,26 @@ if(!$show_dept_id):
     function initSelect2() {
 
         $(".typeselect2text").each((n,e)=>{
-
             let tab_key = $(e).attr("data-tab-key");
             let field_name = $(e).attr("data-field-name");
             $(e).select2({
                 tags: true,
                 width: '100%',
-                allowClear: true,
+                templateSelection: function(data, container) {
+                    // Стандартное отображение
+                    var selection = data.text;
+                    // Добавляем кастомную кнопку очистки
+                    if (data.id) {
+                        return $('<span>' + selection +
+                            ' <button type="button" class="custom-clear">✖</button></span>')
+                            .on('click', '.custom-clear', function(e1) {
+                                $(e).val(null).trigger('change');
+                                e1.stopPropagation();
+                            });
+                    }
+                    return selection;
+                },
+                allowClear: false,
                 data: providersList.filter(p=> p.tab_key == tab_key && p.field_name == field_name).map(p => p.field_value).reduce((acc, item) => {
                     if (!acc.includes(item)) {
                         acc.push(item);
